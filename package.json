@@ -1,0 +1,31 @@
+{
+  "name": "langgraph-airline-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx --tsconfig tsconfig.cli.json src/main.ts",
+    "dev": "next dev -p 3040",
+    "dev:3000": "next dev -p 3000",
+    "build": "next build",
+    "start:web": "next start -p 3040",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.cli.json"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "dotenv": "^16.4.7",
+    "@langchain/anthropic": "^1.0.0",
+    "@langchain/core": "^1.0.1",
+    "@langchain/langgraph": "^1.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
