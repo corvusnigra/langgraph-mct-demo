@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const graph = getFullGraph();
+  const graph = await getFullGraph();
   const config = { configurable: { thread_id: threadId } };
 
   const result = await graph.invoke(

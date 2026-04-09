@@ -2,6 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { searchExercises } from "./data";
 import { loadProfile, saveProfile } from "./profile-store";
+import { exerciseResourceArraySchema } from "./schemas";
 
 export const searchExercisesOrResources = tool(
   async ({ query }: { query: string }) => {
@@ -12,7 +13,12 @@ export const searchExercisesOrResources = tool(
     if (results.length === 0) {
       return `По запросу ничего не найдено. Попробуйте другие ключевые слова (тревога, сон, внимание, руминация).`;
     }
-    return JSON.stringify(results, null, 2);
+    const parsed = exerciseResourceArraySchema.safeParse(results);
+    if (!parsed.success) {
+      console.error("[TOOL] search_exercises_or_resources: невалидный JSON каталога", parsed.error);
+      return "Внутренняя ошибка каталога упражнений.";
+    }
+    return JSON.stringify(parsed.data, null, 2);
   },
   {
     name: "search_exercises_or_resources",

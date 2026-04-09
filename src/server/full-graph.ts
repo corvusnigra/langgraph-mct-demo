@@ -1,11 +1,17 @@
 import { buildFullGraph } from "../seminar-graphs";
+import { getCheckpointSaver } from "./checkpointer";
 
-let instance: ReturnType<typeof buildFullGraph> | undefined;
+let graphPromise: Promise<ReturnType<typeof buildFullGraph>> | null = null;
 
-/** Один compiled graph на процесс сервера (MemorySaver в памяти). */
-export function getFullGraph() {
-  if (!instance) {
-    instance = buildFullGraph();
+/**
+ * Один compiled graph на процесс; checkpointer — Postgres при `DATABASE_URL`, иначе MemorySaver.
+ */
+export async function getFullGraph() {
+  if (!graphPromise) {
+    graphPromise = (async () => {
+      const checkpointer = await getCheckpointSaver();
+      return buildFullGraph(checkpointer);
+    })();
   }
-  return instance;
+  return graphPromise;
 }

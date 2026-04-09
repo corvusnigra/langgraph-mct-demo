@@ -5,6 +5,7 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { END } from "@langchain/langgraph";
 import type { ExerciseResource } from "./data";
+import { exerciseResourceArraySchema } from "./schemas";
 
 const PII_PATTERNS: [RegExp, string][] = [
   [/\b\d{4}\s\d{6}\b/, "[PASSPORT]"],
@@ -64,9 +65,13 @@ export function toolOutputGuard(
 
   let items: ExerciseResource[];
   try {
-    const parsed = JSON.parse(String(lastMsg.content)) as unknown;
-    if (!Array.isArray(parsed)) return {};
-    items = parsed as ExerciseResource[];
+    const raw = JSON.parse(String(lastMsg.content)) as unknown;
+    const validated = exerciseResourceArraySchema.safeParse(raw);
+    if (!validated.success) {
+      console.warn("[GUARD] search_exercises_or_resources: пропуск валидации JSON", validated.error);
+      return {};
+    }
+    items = validated.data;
   } catch {
     return {};
   }
@@ -127,4 +132,13 @@ export function routeAfterInputGuard(
   const last = state.messages.at(-1);
   if (last && AIMessage.isInstance(last)) return END;
   return "llmCall";
+}
+
+/** Полный граф: после input_guard — координатор веток. */
+export function routeAfterInputGuardToCoordinator(
+  state: { messages: BaseMessage[] }
+): typeof END | "coordinator" {
+  const last = state.messages.at(-1);
+  if (last && AIMessage.isInstance(last)) return END;
+  return "coordinator";
 }
