@@ -50,7 +50,11 @@ export async function POST(req: Request) {
 
   let result;
   try {
-    result = await graph.invoke(new Command({ resume }), config);
+    // Один и тот же resume для classic/extended графа; типы Command различаются по схеме state.
+    result = await graph.invoke(
+      new Command({ resume }) as never,
+      config
+    );
   } catch (e) {
     console.error("[api/resume] invoke", e);
     return NextResponse.json(

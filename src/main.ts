@@ -201,7 +201,10 @@ async function main() {
       "⏸️ interrupt payload:",
       JSON.stringify(payload, null, 2).slice(0, 800)
     );
-    turn = await full.invoke(new Command({ resume: "approved" }), bookCfg);
+    turn = await full.invoke(
+      new Command({ resume: "approved" }) as never,
+      bookCfg
+    );
   }
 
   console.log("\nПосле approve:\n", lastAi(turn.messages).slice(0, 900), "…\n");

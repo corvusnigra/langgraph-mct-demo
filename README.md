@@ -30,7 +30,9 @@ cp .env.example .env   # ANTHROPIC_API_KEY=...
 pnpm start
 ```
 
-Переменные: `ANTHROPIC_API_KEY`, опционально `ANTHROPIC_MODEL` (по умолчанию `claude-sonnet-4-20250514`). Для **Postgres** (Neon и т.д.) достаточно **одной** строки подключения: читается первая известная переменная — `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `STORAGE_URL` (префикс из Vercel Storage), `NEON_DATABASE_URL` — см. [`src/server/database-url.ts`](src/server/database-url.ts). Checkpointer: [`src/server/checkpointer.ts`](src/server/checkpointer.ts) (`PostgresSaver.setup()` при старте). Для своих SQL-запросов можно использовать [`src/server/pg-pool.ts`](src/server/pg-pool.ts). Для CLI: `.env` + `dotenv` в `main.ts`. Для Next: **`.env.local`** в корне проекта.
+Переменные: `ANTHROPIC_API_KEY`, опционально `ANTHROPIC_MODEL` (по умолчанию `claude-sonnet-4-20250514`). **Граф по умолчанию** — «классический» (один агент, все tools, без координатора и критика), чтобы укладываться в **таймаут serverless** на Vercel. Расширенный граф (координатор + критик, больше вызовов Claude): задайте **`MCT_EXTENDED_GRAPH=1`** — удобно локально или на **Vercel Pro** с большим `maxDuration`.
+
+Для **Postgres** (Neon и т.д.) достаточно **одной** строки подключения: читается первая известная переменная — `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `STORAGE_URL` (префикс из Vercel Storage), `NEON_DATABASE_URL` — см. [`src/server/database-url.ts`](src/server/database-url.ts). Checkpointer: [`src/server/checkpointer.ts`](src/server/checkpointer.ts) (`PostgresSaver.setup()` при старте). Для своих SQL-запросов можно использовать [`src/server/pg-pool.ts`](src/server/pg-pool.ts). Для CLI: `.env` + `dotenv` в `main.ts`. Для Next: **`.env.local`** в корне проекта.
 
 ### Веб-интерфейс (Next.js)
 

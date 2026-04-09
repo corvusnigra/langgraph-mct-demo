@@ -204,8 +204,51 @@ const criticVerdictSchema = z.object({
   feedback: z.string().optional(),
 });
 
-/** Полный граф: guards + координатор + узкие tools + TAO + критик + interrupt ДЗ. */
-export function buildFullGraph(checkpointer?: BaseCheckpointSaver) {
+/**
+ * Граф как до усложнения: input guard, один агент со всеми tools, TAO, tool guard, interrupt ДЗ.
+ * Меньше вызовов Claude → укладывается в лимит времени Vercel (особенно Hobby ~10 с).
+ */
+function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
+  const cp = checkpointer ?? new MemorySaver();
+  const tools = [
+    searchExercisesOrResources,
+    lookupMctReference,
+    updateClientProfile,
+    proposeHomeworkPlan,
+  ];
+  const model = createChatModel();
+  const classifier = createChatModel();
+  const { llmCall, toolNode, shouldContinue } = buildReactLoop(
+    async () => SYSTEM_PROMPT_V4 + formatProfileBlock(await loadProfile()),
+    tools,
+    model
+  );
+
+  const inputGuardNode = async (state: { messages: BaseMessage[] }) => {
+    return inputGuard(state, classifier);
+  };
+
+  const toolGuardNode = (state: { messages: BaseMessage[] }) =>
+    toolOutputGuard(state);
+
+  return new StateGraph(AgentState)
+    .addNode("input_guard", inputGuardNode)
+    .addNode("llmCall", llmCall)
+    .addNode("toolNode", toolNode)
+    .addNode("tool_output_guard", toolGuardNode)
+    .addEdge(START, "input_guard")
+    .addConditionalEdges("input_guard", routeAfterInputGuard, ["llmCall", END])
+    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
+    .addEdge("toolNode", "tool_output_guard")
+    .addEdge("tool_output_guard", "llmCall")
+    .compile({ checkpointer: cp });
+}
+
+/**
+ * Расширенный граф: координатор веток + критик (несколько доп. вызовов LLM на сообщение).
+ * На serverless с коротким таймаутом может давать 504 — включайте осознанно.
+ */
+function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   const cp = checkpointer ?? new MemorySaver();
   const model = createChatModel();
   const classifier = createChatModel();
@@ -346,6 +389,18 @@ export function buildFullGraph(checkpointer?: BaseCheckpointSaver) {
     .addEdge("tool_output_guard", "llmCall")
     .addConditionalEdges("critic", routeAfterCritic, ["llmCall", END])
     .compile({ checkpointer: cp });
+}
+
+/**
+ * Полный прод-граф для API. По умолчанию — классический быстрый путь.
+ * `MCT_EXTENDED_GRAPH=1` — координатор + критик (длиннее, для Pro / локальных экспериментов).
+ */
+export function buildFullGraph(checkpointer?: BaseCheckpointSaver) {
+  if (process.env.MCT_EXTENDED_GRAPH === "1") {
+    console.log("[graph] buildFullGraph: extended (coordinator + critic)");
+    return buildFullGraphExtended(checkpointer);
+  }
+  return buildFullGraphClassic(checkpointer);
 }
 
 export function threadCfg(threadId: string): RunnableConfig {
