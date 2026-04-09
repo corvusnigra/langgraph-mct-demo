@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Msg = { role: "user" | "assistant"; text: string };
 
 export default function ChatPage() {
-  const [tid] = useState(() => crypto.randomUUID());
+  /** Только на клиенте после mount — иначе SSR и гидратация расходятся (React #418). */
+  const [tid, setTid] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,12 +19,16 @@ export default function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
+    setTid(crypto.randomUUID());
+  }, []);
+
+  useEffect(() => {
     scrollDown();
   }, [messages, loading]);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || !tid) return;
     setInput("");
     setError(null);
     setMessages((m) => [...m, { role: "user", text }]);
@@ -69,6 +74,7 @@ export default function ChatPage() {
 
   const resume = useCallback(
     async (value: string) => {
+      if (!tid) return;
       setLoading(true);
       setError(null);
       try {
@@ -107,9 +113,11 @@ export default function ChatPage() {
           безопасности и сценарий домашнего задания с подтверждением. Работает на
           LangGraph и Claude.
         </p>
-        <p className="mct-thread" title={tid}>
+        <p className="mct-thread" title={tid ?? undefined}>
           <span>Сессия</span>
-          <code>{tid.slice(0, 8)}…{tid.slice(-4)}</code>
+          <code>
+            {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
+          </code>
         </p>
       </header>
 
@@ -203,14 +211,14 @@ export default function ChatPage() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           placeholder="Напишите сообщение…"
-          disabled={loading || interruptOpen}
+          disabled={loading || interruptOpen || !tid}
           className="mct-input"
           aria-label="Текст сообщения"
         />
         <button
           type="button"
           onClick={sendMessage}
-          disabled={loading || interruptOpen || !input.trim()}
+          disabled={loading || interruptOpen || !input.trim() || !tid}
           className="mct-btn mct-btn--primary"
         >
           {loading ? "…" : "Отправить"}
