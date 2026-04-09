@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
@@ -11,16 +10,16 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Показывать панель «Одобрить / Отклонить» (не только при непустом payload с сервера). */
   const [interruptOpen, setInterruptOpen] = useState(false);
   const [interruptPayload, setInterruptPayload] = useState<unknown>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const scrollDown = () => endRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollDown = () =>
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
-    if (loading) scrollDown();
-  }, [loading]);
+    scrollDown();
+  }, [messages, loading]);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -65,7 +64,6 @@ export default function ChatPage() {
       setError(e instanceof Error ? e.message : "Ошибка сети");
     } finally {
       setLoading(false);
-      scrollDown();
     }
   }, [input, loading, tid]);
 
@@ -94,112 +92,89 @@ export default function ChatPage() {
         setError(e instanceof Error ? e.message : "Ошибка сети");
       } finally {
         setLoading(false);
-        scrollDown();
       }
     },
     [tid]
   );
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px 48px" }}>
-      <header style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: "1.35rem", fontWeight: 600, margin: "0 0 8px" }}>
-          Консультант МКТ (LangGraph + Claude)
-        </h1>
-        <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
-          Полный граф: справочник МКТ, каталог упражнений, guardrails, домашний план с
-          подтверждением. Thread:{" "}
-          <code style={{ fontSize: "0.8rem" }}>{tid.slice(0, 13)}…</code>
+    <div className="mct-app">
+      <header className="mct-header">
+        <p className="mct-kicker">Образовательный ассистент</p>
+        <h1 className="mct-title">Консультант по темам МКТ</h1>
+        <p className="mct-lead">
+          Справочник метакогнитивной терапии, каталог упражнений, фильтры
+          безопасности и сценарий домашнего задания с подтверждением. Работает на
+          LangGraph и Claude.
+        </p>
+        <p className="mct-thread" title={tid}>
+          <span>Сессия</span>
+          <code>{tid.slice(0, 8)}…{tid.slice(-4)}</code>
         </p>
       </header>
 
       <div
-        className={`thinking-shell${loading ? " thinking-shell--active" : ""}`}
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: 12,
-          background: "var(--surface)",
-          minHeight: 320,
-          padding: 16,
-          marginBottom: 16,
-          overflow: "auto",
-          maxHeight: "min(60vh, 520px)",
-        }}
+        className={`thinking-shell mct-chat${loading ? " thinking-shell--active" : ""}`}
       >
         <div
           className={`thinking-bar${loading ? " thinking-bar--visible" : ""}`}
           aria-hidden="true"
         />
-        {messages.length === 0 && (
-          <p style={{ color: "var(--muted)", margin: 0 }}>
-            Пример: «Найди упражнения по руминации», затем «Предложи домашнее
-            задание на базе ATT-01 для меня» (имя и email можно дать в чате) —
-            появится запрос подтверждения плана.
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              marginBottom: 14,
-              whiteSpace: "pre-wrap",
-              lineHeight: 1.5,
-            }}
-          >
-            <span
-              style={{
-                color: msg.role === "user" ? "var(--accent)" : "var(--muted)",
-                fontSize: "0.75rem",
-                textTransform: "uppercase",
-              }}
+        <div className="mct-chat-scroll">
+          {messages.length === 0 && (
+            <div className="mct-empty">
+              <p className="mct-empty-title">С чего начать</p>
+              <ul>
+                <li>«Найди упражнения по руминации и кратко опиши одно»</li>
+                <li>
+                  «Чем беспокойство отличается от полезного решения задач?»
+                </li>
+                <li>
+                  После выбора упражнения: «Предложи домашний план на базе
+                  ATT-01» — появится запрос на подтверждение
+                </li>
+              </ul>
+            </div>
+          )}
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`mct-msg${msg.role === "user" ? " mct-msg--user" : " mct-msg--assistant"}`}
             >
-              {msg.role === "user" ? "Вы" : "Агент"}
-            </span>
-            <div style={{ marginTop: 4 }}>{msg.text}</div>
-          </div>
-        ))}
-        {loading && (
-          <div className="thinking-panel" role="status" aria-live="polite">
-            <span className="thinking-label">Агент думает</span>
-            <span className="thinking-dots" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-          </div>
-        )}
-        <div ref={endRef} />
+              <span className="mct-msg-meta">
+                {msg.role === "user" ? "Вы" : "Ответ"}
+              </span>
+              <div className="mct-bubble">{msg.text}</div>
+            </div>
+          ))}
+          {loading && (
+            <div className="thinking-panel" role="status" aria-live="polite">
+              <span className="thinking-label">Печатает ответ</span>
+              <span className="thinking-dots" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+          )}
+          <div ref={endRef} className="mct-scroll-anchor" />
+        </div>
       </div>
 
       {interruptOpen && (
-        <div
-          style={{
-            border: "1px solid var(--accent)",
-            borderRadius: 12,
-            padding: 16,
-            marginBottom: 16,
-            background: "rgba(59, 130, 246, 0.08)",
-          }}
-        >
-          <strong>Подтверждение домашнего плана</strong>
-          <pre
-            style={{
-              margin: "12px 0",
-              fontSize: "0.8rem",
-              overflow: "auto",
-              maxHeight: 200,
-            }}
-          >
+        <section className="mct-interrupt" aria-labelledby="hw-confirm-title">
+          <h2 id="hw-confirm-title">Подтверждение домашнего плана</h2>
+          <pre>
             {interruptPayload != null
               ? JSON.stringify(interruptPayload, null, 2)
-              : "Детали плана не переданы (пустой payload). Всё равно можно одобрить или отклонить."}
+              : "Детали плана не переданы. Можно одобрить или отклонить."}
           </pre>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="mct-interrupt-actions">
             <button
               type="button"
               disabled={loading}
               onClick={() => resume("approved")}
-              style={btnStyle(true)}
+              className="mct-btn mct-btn--primary"
             >
               Одобрить
             </button>
@@ -207,58 +182,40 @@ export default function ChatPage() {
               type="button"
               disabled={loading}
               onClick={() => resume("rejected")}
-              style={btnStyle(false)}
+              className="mct-btn mct-btn--ghost"
             >
               Отклонить
             </button>
           </div>
-        </div>
+        </section>
       )}
 
       {error && (
-        <p style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</p>
+        <p className="mct-error" role="alert">
+          {error}
+        </p>
       )}
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className="mct-composer">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Сообщение…"
+          placeholder="Напишите сообщение…"
           disabled={loading || interruptOpen}
-          style={{
-            flex: 1,
-            padding: "12px 14px",
-            borderRadius: 10,
-            border: "1px solid var(--border)",
-            background: "var(--bg)",
-            color: "var(--text)",
-            fontSize: "1rem",
-          }}
+          className="mct-input"
+          aria-label="Текст сообщения"
         />
         <button
           type="button"
           onClick={sendMessage}
           disabled={loading || interruptOpen || !input.trim()}
-          style={btnStyle(true)}
+          className="mct-btn mct-btn--primary"
         >
           {loading ? "…" : "Отправить"}
         </button>
       </div>
     </div>
   );
-}
-
-function btnStyle(primary: boolean): CSSProperties {
-  return {
-    padding: "12px 18px",
-    borderRadius: 10,
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 600,
-    fontSize: "0.95rem",
-    background: primary ? "var(--accent)" : "var(--border)",
-    color: primary ? "#fff" : "var(--text)",
-  };
 }
