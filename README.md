@@ -48,7 +48,7 @@ pnpm dev
 
 Чат использует полный граф (`buildFullGraph`); после сценария с `propose_homework_plan` появится панель **Одобрить / Отклонить** (human-in-the-loop).
 
-API: `POST /api/chat` `{ threadId, message }`, `POST /api/resume` `{ threadId, resume }`.
+API: `POST /api/chat` `{ threadId, message }`, `POST /api/resume` `{ threadId, resume }`, **`GET /api/db-health`** — проверка Postgres (`SELECT 1`, без ключа Anthropic).
 
 ### Деплой на Vercel
 
