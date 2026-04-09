@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { parseApiJson } from "@/src/lib/parse-api-response";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
@@ -39,12 +40,12 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threadId: tid, message: text }),
       });
-      const data = (await res.json()) as {
+      const data = await parseApiJson<{
         reply?: string;
         interrupted?: boolean;
         interruptPayload?: unknown;
         error?: string;
-      };
+      }>(res);
       if (!res.ok) {
         setError(data.error ?? res.statusText);
         return;
@@ -83,7 +84,9 @@ export default function ChatPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ threadId: tid, resume: value }),
         });
-        const data = (await res.json()) as { reply?: string; error?: string };
+        const data = await parseApiJson<{ reply?: string; error?: string }>(
+          res
+        );
         if (!res.ok) {
           setError(data.error ?? res.statusText);
           return;

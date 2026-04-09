@@ -30,10 +30,39 @@ export async function POST(req: Request) {
     );
   }
 
-  const graph = await getFullGraph();
+  let graph;
+  try {
+    graph = await getFullGraph();
+  } catch (e) {
+    console.error("[api/resume] getFullGraph", e);
+    return NextResponse.json(
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "Не удалось инициализировать граф.",
+      },
+      { status: 500 }
+    );
+  }
+
   const config = { configurable: { thread_id: threadId } };
 
-  const result = await graph.invoke(new Command({ resume }), config);
+  let result;
+  try {
+    result = await graph.invoke(new Command({ resume }), config);
+  } catch (e) {
+    console.error("[api/resume] invoke", e);
+    return NextResponse.json(
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "Ошибка выполнения графа.",
+      },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     reply: lastAiText(result.messages),
