@@ -1,20 +1,22 @@
 import { MemorySaver, type BaseCheckpointSaver } from "@langchain/langgraph";
+import { getDatabaseUrl } from "./database-url";
 
 let cached: BaseCheckpointSaver | null = null;
 let initPromise: Promise<BaseCheckpointSaver> | null = null;
 
 /**
- * Возвращает персистентный checkpointer при `DATABASE_URL`, иначе `MemorySaver` (локально / без БД).
+ * Возвращает персистентный checkpointer при строке подключения к Postgres, иначе `MemorySaver`.
+ * Строка ищется через {@link getDatabaseUrl} (`DATABASE_URL`, `POSTGRES_URL`, `STORAGE_URL`, …).
  * Для Postgres вызывается `setup()` один раз на процесс.
  */
 export async function getCheckpointSaver(): Promise<BaseCheckpointSaver> {
   if (cached) return cached;
   if (!initPromise) {
     initPromise = (async () => {
-      const url = process.env.DATABASE_URL?.trim();
+      const url = getDatabaseUrl();
       if (!url) {
         console.log(
-          "[checkpointer] DATABASE_URL не задан — используется MemorySaver (не подходит для multi-instance)."
+          "[checkpointer] строка подключения к Postgres не задана — используется MemorySaver (не подходит для multi-instance)."
         );
         cached = new MemorySaver();
         return cached;

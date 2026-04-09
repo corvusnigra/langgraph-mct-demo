@@ -30,7 +30,7 @@ cp .env.example .env   # ANTHROPIC_API_KEY=...
 pnpm start
 ```
 
-Переменные: `ANTHROPIC_API_KEY`, опционально `ANTHROPIC_MODEL` (по умолчанию `claude-sonnet-4-20250514`). Для **стабильных потоков на проде** задайте `DATABASE_URL` (Postgres) — см. [`src/server/checkpointer.ts`](src/server/checkpointer.ts); при первом запуске вызывается `PostgresSaver.setup()`. Для CLI: `.env` + `dotenv` в `main.ts`. Для Next: положите ключ в **`.env.local`** в корне проекта (Next подхватывает автоматически).
+Переменные: `ANTHROPIC_API_KEY`, опционально `ANTHROPIC_MODEL` (по умолчанию `claude-sonnet-4-20250514`). Для **Postgres** (Neon и т.д.) достаточно **одной** строки подключения: читается первая известная переменная — `DATABASE_URL`, `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `STORAGE_URL` (префикс из Vercel Storage), `NEON_DATABASE_URL` — см. [`src/server/database-url.ts`](src/server/database-url.ts). Checkpointer: [`src/server/checkpointer.ts`](src/server/checkpointer.ts) (`PostgresSaver.setup()` при старте). Для своих SQL-запросов можно использовать [`src/server/pg-pool.ts`](src/server/pg-pool.ts). Для CLI: `.env` + `dotenv` в `main.ts`. Для Next: **`.env.local`** в корне проекта.
 
 ### Веб-интерфейс (Next.js)
 
@@ -85,6 +85,8 @@ API: `POST /api/chat` `{ threadId, message }`, `POST /api/resume` `{ threadId, r
 | `branching.ts` | Ветки специалистов и узкие наборы tools |
 | `schemas.ts` | Zod-схемы для JSON каталога упражнений |
 | `server/checkpointer.ts` | Postgres или MemorySaver |
+| `server/database-url.ts` | Единая строка подключения из env |
+| `server/pg-pool.ts` | Опциональный пул `pg` для своих запросов |
 | `server/full-graph.ts` | Асинхронная сборка графа для API |
 | `profile-store.ts` | `data/client_profile.json` |
 | `main.ts` | Единый демо-раннер |
