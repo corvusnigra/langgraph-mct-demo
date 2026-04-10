@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { parseApiJson } from "@/src/lib/parse-api-response";
 
+type UserInfo = { id: string; email: string; role: string };
+
 type Msg = { role: "user" | "assistant"; text: string };
 
 export default function ChatPage() {
@@ -14,6 +16,7 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [interruptOpen, setInterruptOpen] = useState(false);
   const [interruptPayload, setInterruptPayload] = useState<unknown>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const scrollDown = () =>
@@ -21,6 +24,13 @@ export default function ChatPage() {
 
   useEffect(() => {
     setTid(crypto.randomUUID());
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/users/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUser(data as UserInfo | null))
+      .catch(() => null);
   }, []);
 
   useEffect(() => {
@@ -109,6 +119,21 @@ export default function ChatPage() {
   return (
     <div className="mct-app">
       <header className="mct-header">
+        {user && (
+          <div className="mct-user-bar">
+            <span className="mct-user-email">{user.email}</span>
+            <button
+              type="button"
+              className="mct-btn mct-btn--ghost mct-btn--sm"
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/login";
+              }}
+            >
+              Выйти
+            </button>
+          </div>
+        )}
         <p className="mct-kicker">Образовательный ассистент</p>
         <h1 className="mct-title">Консультант по темам МКТ</h1>
         <p className="mct-lead">
