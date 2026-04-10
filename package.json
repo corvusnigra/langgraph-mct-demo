@@ -11,7 +11,8 @@
     "start:web": "next start -p 3040",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.cli.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eval": "tsx --tsconfig tsconfig.cli.json src/regression/runner.ts"
   },
   "dependencies": {
     "@langchain/anthropic": "^1.0.0",
