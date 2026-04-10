@@ -15,6 +15,24 @@ export function getPgPool(): Pool | undefined {
       connectionString: url,
       max: Math.min(10, Number(process.env.PG_POOL_MAX ?? 5) || 5),
     });
+    pool.on("error", (err) => {
+      console.error("[pg-pool] idle client error:", err);
+    });
   }
   return pool;
+}
+
+export async function closePgPool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = undefined;
+  }
+}
+
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => {
+    closePgPool().catch((err) => {
+      console.error("[pg-pool] error during shutdown:", err);
+    });
+  });
 }

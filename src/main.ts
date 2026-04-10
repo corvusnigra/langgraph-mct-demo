@@ -202,6 +202,7 @@ async function main() {
       JSON.stringify(payload, null, 2).slice(0, 800)
     );
     turn = await full.invoke(
+      // LangGraph: Command<resume> type несовместим с CompiledStateGraph.invoke() state generics
       new Command({ resume: "approved" }) as never,
       bookCfg
     );

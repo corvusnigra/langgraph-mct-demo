@@ -68,12 +68,31 @@ export function toolOutputGuard(
     const raw = JSON.parse(String(lastMsg.content)) as unknown;
     const validated = exerciseResourceArraySchema.safeParse(raw);
     if (!validated.success) {
-      console.warn("[GUARD] search_exercises_or_resources: пропуск валидации JSON", validated.error);
-      return {};
+      console.warn("[GUARD] search_exercises_or_resources: ошибка валидации JSON", validated.error);
+      return {
+        messages: [
+          new ToolMessage({
+            content: "Ошибка: результат поиска не прошёл валидацию. Повторите запрос.",
+            tool_call_id: lastMsg.tool_call_id,
+            name: lastMsg.name,
+            id: lastMsg.id,
+          }),
+        ],
+      };
     }
     items = validated.data;
-  } catch {
-    return {};
+  } catch (err) {
+    console.warn("[GUARD] search_exercises_or_resources: не удалось разобрать JSON", err);
+    return {
+      messages: [
+        new ToolMessage({
+          content: "Ошибка: не удалось разобрать результат поиска.",
+          tool_call_id: lastMsg.tool_call_id,
+          name: lastMsg.name,
+          id: lastMsg.id,
+        }),
+      ],
+    };
   }
 
   const clean: ExerciseResource[] = [];

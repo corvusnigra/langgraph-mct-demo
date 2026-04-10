@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Command } from "@langchain/langgraph";
+import { Command, INTERRUPT, isInterrupted } from "@langchain/langgraph";
 import { getFullGraph } from "@/src/server/full-graph";
 import { lastAiText } from "@/src/seminar-graphs";
 
@@ -50,9 +50,9 @@ export async function POST(req: Request) {
 
   let result;
   try {
-    // Один и тот же resume для classic/extended графа; типы Command различаются по схеме state.
     result = await graph.invoke(
-      new Command({ resume }) as never,
+      // @ts-expect-error LangGraph Command type несовместим с state generics
+      new Command({ resume }),
       config
     );
   } catch (e) {
@@ -66,6 +66,20 @@ export async function POST(req: Request) {
       },
       { status: 500 }
     );
+  }
+
+  if (isInterrupted(result)) {
+    const raw = result[INTERRUPT];
+    const first = Array.isArray(raw) && raw.length > 0 ? raw[0] : undefined;
+    const payload =
+      first != null && typeof first === "object" && "value" in first
+        ? (first as { value: unknown }).value
+        : first;
+    return NextResponse.json({
+      reply: "",
+      interrupted: true,
+      interruptPayload: payload ?? null,
+    });
   }
 
   return NextResponse.json({

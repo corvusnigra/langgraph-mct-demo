@@ -11,8 +11,10 @@ export async function loadProfile(): Promise<Record<string, string>> {
     if (data && typeof data === "object" && !Array.isArray(data)) {
       return data as Record<string, string>;
     }
-  } catch {
-    // missing or invalid
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.warn("[profile-store] ошибка чтения профиля:", err);
+    }
   }
   return {};
 }

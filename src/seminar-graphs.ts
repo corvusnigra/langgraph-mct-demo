@@ -1,5 +1,3 @@
-import { ChatAnthropic } from "@langchain/anthropic";
-import type { RunnableConfig } from "@langchain/core/runnables";
 import {
   AIMessage,
   HumanMessage,
@@ -20,6 +18,7 @@ import {
   messagesStateReducer,
 } from "@langchain/langgraph";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
+import { ToolMessage } from "@langchain/core/messages";
 import {
   inputGuard,
   routeAfterInputGuard,
@@ -42,6 +41,12 @@ import {
   toolsForBranch,
   type AgentBranch,
 } from "./branching";
+import {
+  buildToolsByName,
+  createChatModel,
+  lastAiText,
+  threadConfig,
+} from "./shared";
 
 const AgentState = new StateSchema({
   messages: MessagesValue,
@@ -59,35 +64,15 @@ const FullGraphAnnotation = Annotation.Root({
   critic_last_verdict: Annotation<"pass" | "revise" | undefined>(),
 });
 
-function bindTools(model: ChatAnthropic, tools: StructuredToolInterface[]) {
-  return model.bindTools(tools);
-}
-
-export function createChatModel(): ChatAnthropic {
-  const modelName =
-    process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
-  return new ChatAnthropic({
-    model: modelName,
-    temperature: 0,
-  });
-}
-
-function toolsByName(tools: StructuredToolInterface[]) {
-  return Object.fromEntries(tools.map((t) => [t.name, t])) as Record<
-    string,
-    StructuredToolInterface
-  >;
-}
-
 type SystemFn = () => Promise<string>;
 
 function buildReactLoop(
   getSystem: SystemFn,
   tools: StructuredToolInterface[],
-  model: ChatAnthropic
+  model: ReturnType<typeof createChatModel>
 ) {
-  const map = toolsByName(tools);
-  const modelWithTools = bindTools(model, tools);
+  const map = buildToolsByName(tools);
+  const modelWithTools = model.bindTools(tools);
 
   const llmCall = async (state: { messages: BaseMessage[] }) => {
     const system = await getSystem();
@@ -112,7 +97,17 @@ function buildReactLoop(
     const toolCall = calls[0];
     if (!toolCall) return { messages: [] };
     const t = map[toolCall.name];
-    if (!t) return { messages: [] };
+    if (!t) {
+      console.warn(`[TOOL] неизвестный инструмент: ${toolCall.name}`);
+      return {
+        messages: [
+          new ToolMessage({
+            content: `Ошибка: инструмент «${toolCall.name}» не найден.`,
+            tool_call_id: toolCall.id ?? "",
+          }),
+        ],
+      };
+    }
     const msg = await t.invoke(toolCall);
     return { messages: [msg] };
   };
@@ -127,7 +122,21 @@ function buildReactLoop(
   return { llmCall, toolNode, shouldContinue };
 }
 
-/** RAG: прямой запрос в lookup_mct_reference. */
+function wireSimpleGraph(
+  llmCall: (state: { messages: BaseMessage[] }) => Promise<{ messages: BaseMessage[] }>,
+  toolNode: (state: { messages: BaseMessage[] }) => Promise<{ messages: BaseMessage[] }>,
+  route: (state: { messages: BaseMessage[] }) => typeof END | "toolNode",
+  checkpointer?: BaseCheckpointSaver
+) {
+  return new StateGraph(AgentState)
+    .addNode("llmCall", llmCall)
+    .addNode("toolNode", toolNode)
+    .addEdge(START, "llmCall")
+    .addConditionalEdges("llmCall", route, ["toolNode", END])
+    .addEdge("toolNode", "llmCall")
+    .compile({ checkpointer });
+}
+
 export function buildGraphRag() {
   const checkpointer = new MemorySaver();
   const tools = [searchExercisesOrResources, lookupMctReference, updateClientProfile];
@@ -137,17 +146,9 @@ export function buildGraphRag() {
     tools,
     model
   );
-
-  return new StateGraph(AgentState)
-    .addNode("llmCall", llmCall)
-    .addNode("toolNode", toolNode)
-    .addEdge(START, "llmCall")
-    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
-    .addEdge("toolNode", "llmCall")
-    .compile({ checkpointer });
+  return wireSimpleGraph(llmCall, toolNode, shouldContinue, checkpointer);
 }
 
-/** HyDE: инструкции в SYSTEM_PROMPT_V3. */
 export function buildGraphHyde() {
   const checkpointer = new MemorySaver();
   const tools = [searchExercisesOrResources, lookupMctReference, updateClientProfile];
@@ -157,17 +158,9 @@ export function buildGraphHyde() {
     tools,
     model
   );
-
-  return new StateGraph(AgentState)
-    .addNode("llmCall", llmCall)
-    .addNode("toolNode", toolNode)
-    .addEdge(START, "llmCall")
-    .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
-    .addEdge("toolNode", "llmCall")
-    .compile({ checkpointer });
+  return wireSimpleGraph(llmCall, toolNode, shouldContinue, checkpointer);
 }
 
-/** input_guard + tool_output_guard + HyDE-промпт. */
 export function buildGuardedGraph() {
   const checkpointer = new MemorySaver();
   const tools = [searchExercisesOrResources, lookupMctReference, updateClientProfile];
@@ -204,10 +197,6 @@ const criticVerdictSchema = z.object({
   feedback: z.string().optional(),
 });
 
-/**
- * Граф как до усложнения: input guard, один агент со всеми tools, TAO, tool guard, interrupt ДЗ.
- * Меньше вызовов Claude → укладывается в лимит времени Vercel (особенно Hobby ~10 с).
- */
 function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
   const cp = checkpointer ?? new MemorySaver();
   const tools = [
@@ -244,10 +233,6 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
     .compile({ checkpointer: cp });
 }
 
-/**
- * Расширенный граф: координатор веток + критик (несколько доп. вызовов LLM на сообщение).
- * На serverless с коротким таймаутом может давать 504 — включайте осознанно.
- */
 function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   const cp = checkpointer ?? new MemorySaver();
   const model = createChatModel();
@@ -287,7 +272,7 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   const llmCall = async (state: typeof FullGraphAnnotation.State) => {
     const branch = (state.routing_branch ?? "general") as AgentBranch;
     const tools = toolsForBranch(branch);
-    const modelWithTools = bindTools(model, tools);
+    const modelWithTools = model.bindTools(tools);
     const system = await getBaseSystem();
     const response = await modelWithTools.invoke([
       new SystemMessage(system),
@@ -296,7 +281,7 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
     return { messages: [response] };
   };
 
-  const mapAllTools = toolsByName([
+  const mapAllTools = buildToolsByName([
     searchExercisesOrResources,
     lookupMctReference,
     updateClientProfile,
@@ -318,8 +303,15 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
     if (!toolCall) return { messages: [] };
     const t = mapAllTools[toolCall.name];
     if (!t) {
-      console.warn(`[TAO] неизвестный tool: ${toolCall.name}`);
-      return { messages: [] };
+      console.warn(`[TOOL] неизвестный инструмент: ${toolCall.name}`);
+      return {
+        messages: [
+          new ToolMessage({
+            content: `Ошибка: инструмент «${toolCall.name}» не найден.`,
+            tool_call_id: toolCall.id ?? "",
+          }),
+        ],
+      };
     }
     const msg = await t.invoke(toolCall);
     return { messages: [msg] };
@@ -391,10 +383,6 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
     .compile({ checkpointer: cp });
 }
 
-/**
- * Полный прод-граф для API. По умолчанию — классический быстрый путь.
- * `MCT_EXTENDED_GRAPH=1` — координатор + критик (длиннее, для Pro / локальных экспериментов).
- */
 export function buildFullGraph(checkpointer?: BaseCheckpointSaver) {
   if (process.env.MCT_EXTENDED_GRAPH === "1") {
     console.log("[graph] buildFullGraph: extended (coordinator + critic)");
@@ -403,19 +391,4 @@ export function buildFullGraph(checkpointer?: BaseCheckpointSaver) {
   return buildFullGraphClassic(checkpointer);
 }
 
-export function threadCfg(threadId: string): RunnableConfig {
-  return { configurable: { thread_id: threadId } };
-}
-
-export function lastAiText(messages: BaseMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (AIMessage.isInstance(m)) {
-      const c = m.content;
-      return typeof c === "string" ? c : JSON.stringify(c);
-    }
-  }
-  return "";
-}
-
-export { Command };
+export { threadConfig as threadCfg, lastAiText, Command };
