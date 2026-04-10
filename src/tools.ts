@@ -1,8 +1,10 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { searchExercises } from "./data";
-import { loadProfile, saveProfile } from "./profile-store";
 import { exerciseResourceArraySchema } from "./schemas";
+import { requestContext } from "./server/request-context";
+import { logExercise } from "./server/session-db";
+import { loadProfileForUser, saveProfileForUser } from "./server/profile-db";
 
 export const searchExercisesOrResources = tool(
   async ({ query }: { query: string }) => {
@@ -18,6 +20,17 @@ export const searchExercisesOrResources = tool(
       console.error("[TOOL] search_exercises_or_resources: невалидный JSON каталога", parsed.error);
       return "Внутренняя ошибка каталога упражнений.";
     }
+
+    // Log viewed exercises for the current user (fire-and-forget)
+    const { userId, sessionId } = requestContext.get();
+    if (userId) {
+      for (const ex of parsed.data) {
+        logExercise({ userId, sessionId, exerciseId: ex.exercise_id }).catch(
+          (err) => console.warn("[TOOL] logExercise failed:", err)
+        );
+      }
+    }
+
     return JSON.stringify(parsed.data, null, 2);
   },
   {
@@ -35,9 +48,10 @@ export const searchExercisesOrResources = tool(
 export const updateClientProfile = tool(
   async ({ key, value }: { key: string; value: string }) => {
     console.log(`[TOOL] update_client_profile('${key}', …)`);
-    const profile = await loadProfile();
+    const { userId } = requestContext.get();
+    const profile = await loadProfileForUser(userId);
     profile[key] = value;
-    await saveProfile(profile);
+    await saveProfileForUser(profile, userId);
     return `Профиль обновлён: ${key}`;
   },
   {

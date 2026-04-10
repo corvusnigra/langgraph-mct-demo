@@ -6,3 +6,4 @@ dist/
 data/client_profile.json
 data/passenger_profile.json
 tsconfig.tsbuildinfo
+.omc/

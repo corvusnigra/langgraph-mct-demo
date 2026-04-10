@@ -122,6 +122,11 @@ export default function ChatPage() {
         {user && (
           <div className="mct-user-bar">
             <span className="mct-user-email">{user.email}</span>
+            {(user.role === "therapist" || user.role === "admin") && (
+              <a href="/therapist" className="mct-btn mct-btn--ghost mct-btn--sm">
+                Дашборд
+              </a>
+            )}
             <button
               type="button"
               className="mct-btn mct-btn--ghost mct-btn--sm"

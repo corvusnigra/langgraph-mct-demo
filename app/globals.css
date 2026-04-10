@@ -506,3 +506,126 @@ a {
   font-weight: 500;
   color: var(--text-muted, #888);
 }
+
+/* ── Therapist dashboard ── */
+.therapist-section {
+  margin: 1.5rem 0;
+}
+
+.therapist-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.therapist-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent, #5b6af0);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+}
+
+.therapist-empty {
+  color: var(--text-muted, #888);
+  font-size: 0.875rem;
+}
+
+.therapist-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.therapist-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.therapist-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.therapist-ref {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  background: var(--surface-hover, #f0f0f0);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.therapist-client {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.therapist-date {
+  font-size: 0.8125rem;
+  color: var(--text-muted, #888);
+  margin-left: auto;
+}
+
+.therapist-summary {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.therapist-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.therapist-exercise {
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--text-muted, #888);
+}
+
+.therapist-freq {
+  font-size: 0.8125rem;
+  color: var(--text-muted, #888);
+}
+
+.therapist-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.therapist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.therapist-table th,
+.therapist-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.therapist-table th {
+  font-weight: 600;
+  color: var(--text-muted, #888);
+  font-size: 0.8125rem;
+}

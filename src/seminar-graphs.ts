@@ -32,7 +32,10 @@ import {
   SYSTEM_PROMPT_V3,
   SYSTEM_PROMPT_V4,
 } from "./prompts";
-import { formatProfileBlock, loadProfile } from "./profile-store";
+import { formatProfileBlock } from "./profile-store";
+import { loadProfileForUser } from "./server/profile-db";
+import { requestContext } from "./server/request-context";
+import { getRecentSessions } from "./server/session-db";
 import { lookupMctReference } from "./rag-tools";
 import { searchExercisesOrResources, updateClientProfile } from "./tools";
 import { proposeHomeworkPlan } from "./homework-interrupt-tool";
@@ -53,6 +56,26 @@ const AgentState = new StateSchema({
 });
 
 const MAX_CRITIC_REVISIONS = 2;
+
+/** Строит system prompt с профилем пользователя и историей предыдущих сессий. */
+async function buildSystemPrompt(base: string): Promise<string> {
+  const { userId } = requestContext.get();
+  const [profile, history] = await Promise.all([
+    loadProfileForUser(userId),
+    userId ? getRecentSessions(userId) : Promise.resolve([]),
+  ]);
+  let system = base + formatProfileBlock(profile);
+  if (history.length > 0) {
+    const lines = history.map((s) => {
+      const exStr = s.exercises.length
+        ? s.exercises.join(", ")
+        : "упражнений не просматривалось";
+      return `- ${s.started_at.toLocaleDateString("ru-RU")}: ${exStr}`;
+    });
+    system += `\n\n## Предыдущие сессии клиента\n${lines.join("\n")}\n`;
+  }
+  return system;
+}
 
 const FullGraphAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -142,7 +165,7 @@ export function buildGraphRag() {
   const tools = [searchExercisesOrResources, lookupMctReference, updateClientProfile];
   const model = createChatModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
-    async () => SYSTEM_PROMPT_V2_RAG + formatProfileBlock(await loadProfile()),
+    async () => buildSystemPrompt(SYSTEM_PROMPT_V2_RAG),
     tools,
     model
   );
@@ -154,7 +177,7 @@ export function buildGraphHyde() {
   const tools = [searchExercisesOrResources, lookupMctReference, updateClientProfile];
   const model = createChatModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
-    async () => SYSTEM_PROMPT_V3 + formatProfileBlock(await loadProfile()),
+    async () => buildSystemPrompt(SYSTEM_PROMPT_V3),
     tools,
     model
   );
@@ -167,7 +190,7 @@ export function buildGuardedGraph() {
   const model = createChatModel();
   const classifier = createChatModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
-    async () => SYSTEM_PROMPT_V3 + formatProfileBlock(await loadProfile()),
+    async () => buildSystemPrompt(SYSTEM_PROMPT_V3),
     tools,
     model
   );
@@ -208,7 +231,7 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
   const model = createChatModel();
   const classifier = createChatModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
-    async () => SYSTEM_PROMPT_V4 + formatProfileBlock(await loadProfile()),
+    async () => buildSystemPrompt(SYSTEM_PROMPT_V4),
     tools,
     model
   );
@@ -242,8 +265,7 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   );
   const criticModel = createChatModel().withStructuredOutput(criticVerdictSchema);
 
-  const getBaseSystem = async () =>
-    SYSTEM_PROMPT_V4 + formatProfileBlock(await loadProfile());
+  const getBaseSystem = () => buildSystemPrompt(SYSTEM_PROMPT_V4);
 
   const inputGuardNode = async (state: typeof FullGraphAnnotation.State) => {
     return inputGuard(state, classifier);

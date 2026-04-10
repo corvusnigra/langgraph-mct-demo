@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { interrupt } from "@langchain/langgraph";
 import { EXERCISES } from "./data";
+import { requestContext } from "./server/request-context";
+import { saveHomework } from "./server/session-db";
 
 export const proposeHomeworkPlan = tool(
   async ({
@@ -53,6 +55,19 @@ export const proposeHomeworkPlan = tool(
         .digest("hex")
         .slice(0, 6)
         .toUpperCase();
+
+    // Persist to DB if user is authenticated
+    const { userId, sessionId } = requestContext.get();
+    if (userId) {
+      saveHomework({
+        userId,
+        sessionId,
+        exerciseId: exercise_id,
+        ref,
+        summary: homework_summary,
+        weeklySessions: weekly_sessions,
+      }).catch((err) => console.warn("[TOOL] saveHomework failed:", err));
+    }
 
     return (
       `✅ Домашний план согласован и зафиксирован.\n` +
