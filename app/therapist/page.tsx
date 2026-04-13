@@ -173,18 +173,22 @@ export default function TherapistPage() {
               <div className="dash-card">
                 <span className="dash-card__value">{analytics.clients.length}</span>
                 <span className="dash-card__label">Клиентов</span>
+                <svg className="dash-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{analytics.total_sessions_week}</span>
                 <span className="dash-card__label">Сессий за 7 дней</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M12 2v20"/><path d="m4.93 4.93 14.14 14.14"/><path d="M2 12h20"/><path d="m19.07 4.93-14.14 14.14"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{homework.length}</span>
                 <span className="dash-card__label">Заданий на проверке</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{analytics.top_exercises.length}</span>
-                <span className="dash-card__label">Упражнений просмотрено</span>
+                <span className="dash-card__label">Упражнений в каталоге</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
               </div>
             </div>
 
@@ -193,7 +197,12 @@ export default function TherapistPage() {
               <section className="dash-section dash-section--wide">
                 <h2 className="dash-section__title">Последние сессии</h2>
                 {analytics.recent_sessions.length === 0 ? (
-                  <p className="dash-empty">Сессий пока нет</p>
+                  <div className="dash-empty">
+                    <svg className="dash-empty__icon" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p>Сессий пока нет. Как только клиенты начнут общаться с ботом, они появятся здесь.</p>
+                  </div>
                 ) : (
                   <div className="dash-timeline">
                     {analytics.recent_sessions.map((s) => (
@@ -228,7 +237,12 @@ export default function TherapistPage() {
               <section className="dash-section">
                 <h2 className="dash-section__title">Популярные упражнения</h2>
                 {analytics.top_exercises.length === 0 ? (
-                  <p className="dash-empty">Нет данных</p>
+                  <div className="dash-empty">
+                    <svg className="dash-empty__icon" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p>Нет данных о просмотрах упражнений.</p>
+                  </div>
                 ) : (
                   <div className="dash-bars">
                     {analytics.top_exercises.map((ex) => (
@@ -253,7 +267,12 @@ export default function TherapistPage() {
               <section className="dash-section dash-section--full">
                 <h2 className="dash-section__title">Статистика по клиентам</h2>
                 {analytics.clients.length === 0 ? (
-                  <p className="dash-empty">Клиенты не прикреплены</p>
+                  <div className="dash-empty">
+                    <svg className="dash-empty__icon" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                      <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <p>У вас пока нет прикреплённых клиентов.</p>
+                  </div>
                 ) : (
                   <div className="dash-table-wrap">
                     <table className="dash-table">
@@ -319,7 +338,12 @@ export default function TherapistPage() {
               )}
             </h2>
             {homework.length === 0 ? (
-              <p className="dash-empty">Нет заданий для проверки</p>
+              <div className="dash-empty">
+                <svg className="dash-empty__icon" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 00-2-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <p>Все задания проверены. Клиентам нечего ждать!</p>
+              </div>
             ) : (
               <div className="dash-hw-list">
                 {homework.map((hw) => (

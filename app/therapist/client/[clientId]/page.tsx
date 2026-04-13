@@ -197,20 +197,24 @@ export default function ClientPage() {
               <div className="dash-card">
                 <span className="dash-card__value">{detail.total_sessions}</span>
                 <span className="dash-card__label">Сессий</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M12 2v20"/><path d="m4.93 4.93 14.14 14.14"/><path d="M2 12h20"/><path d="m19.07 4.93-14.14 14.14"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">
                   {detail.avg_duration_min != null ? `${Math.round(detail.avg_duration_min)} мин` : "—"}
                 </span>
                 <span className="dash-card__label">Ср. длительность</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{detail.homework_approved}/{detail.homework_total}</span>
                 <span className="dash-card__label">ДЗ одобрено</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{fmt(detail.last_session)}</span>
                 <span className="dash-card__label">Последняя сессия</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               </div>
             </div>
 
