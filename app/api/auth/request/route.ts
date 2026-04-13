@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createMagicToken } from "@/src/server/auth";
 import { sendMagicLink } from "@/src/server/email";
+import { isRateLimited } from "@/src/server/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,11 @@ export async function POST(req: Request) {
     body = (await req.json()) as { email?: string };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  if (await isRateLimited(ip)) {
+    return NextResponse.json({ error: "Слишком много попыток. Подождите минуту." }, { status: 429 });
   }
 
   const email = body.email?.trim().toLowerCase();

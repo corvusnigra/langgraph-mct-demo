@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { parseApiJson } from "@/src/lib/parse-api-response";
 
 type UserInfo = { id: string; email: string; role: string };
@@ -47,6 +48,7 @@ export default function ChatPage() {
   const [interruptPayload, setInterruptPayload] = useState<unknown>(null);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [modality, setModality] = useState<"mct" | "act">("mct");
+  const [historyLoading, setHistoryLoading] = useState(true); // #11
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,12 +66,14 @@ export default function ChatPage() {
     localStorage.setItem(key, savedTid);
     setTid(savedTid);
 
+    setHistoryLoading(true); // #11
     fetch(`/api/history?threadId=${savedTid}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { messages?: Msg[] } | null) => {
         if (data?.messages?.length) setMessages(data.messages);
       })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => setHistoryLoading(false)); // #11
   }, []);
 
   const startNewChat = useCallback(
@@ -100,12 +104,14 @@ export default function ChatPage() {
       localStorage.setItem(key, savedTid);
       setTid(savedTid);
 
+      setHistoryLoading(true); // #11
       fetch(`/api/history?threadId=${savedTid}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data: { messages?: Msg[] } | null) => {
           if (data?.messages?.length) setMessages(data.messages);
         })
-        .catch(() => null);
+        .catch(() => null)
+        .finally(() => setHistoryLoading(false)); // #11
     },
     [modality]
   );
@@ -285,8 +291,14 @@ export default function ChatPage() {
         />
 
         <div className="chat-scroll" role="log" aria-live="polite">
-          {/* Empty state */}
-          {messages.length === 0 && !loading && (
+          {/* Empty state / skeleton */}
+          {historyLoading ? (
+            // #11: skeleton пока история не загружена
+            <div className="chat-empty" aria-busy="true">
+              <div className="chat-skeleton-line" aria-hidden="true" />
+              <div className="chat-skeleton-line chat-skeleton-line--sm" aria-hidden="true" />
+            </div>
+          ) : messages.length === 0 && !loading ? (
             <div className="chat-empty">
               <p className="chat-empty__title">{meta.title}</p>
               <p className="chat-empty__desc">{meta.description}</p>
@@ -307,7 +319,7 @@ export default function ChatPage() {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Messages */}
           {messages.map((msg, i) => (
@@ -315,7 +327,14 @@ export default function ChatPage() {
               key={i}
               className={`chat-msg${msg.role === "user" ? " chat-msg--user" : " chat-msg--bot"}`}
             >
-              <div className="chat-bubble">{msg.text}</div>
+              <div className="chat-bubble">
+                {msg.role === "assistant" ? (
+                  // #9: рендер markdown для ответов ассистента
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                ) : (
+                  msg.text
+                )}
+              </div>
             </div>
           ))}
 
@@ -337,40 +356,64 @@ export default function ChatPage() {
       </main>
 
       {/* ── Interrupt panel ── */}
-      {interruptOpen && (
-        <section
-          className="chat-interrupt"
-          aria-labelledby="hw-confirm-title"
-        >
-          <p className="chat-interrupt__label" id="hw-confirm-title">
-            <span className="chat-interrupt__icon" aria-hidden="true">⏸</span>
-            Подтверждение домашнего плана
-          </p>
-          <pre className="chat-interrupt__pre">
-            {interruptPayload != null
-              ? JSON.stringify(interruptPayload, null, 2)
-              : "Детали плана не переданы. Можно одобрить или отклонить."}
-          </pre>
-          <div className="chat-interrupt__actions">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => resume("approved")}
-              className="mct-btn mct-btn--primary"
-            >
-              Одобрить
-            </button>
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => resume("rejected")}
-              className="mct-btn mct-btn--ghost"
-            >
-              Отклонить
-            </button>
-          </div>
-        </section>
-      )}
+      {interruptOpen && (() => {
+        // #10: структурированная карточка вместо сырого JSON
+        type HwPayload = {
+          action?: string;
+          exercise_id?: string;
+          client_name?: string;
+          email?: string;
+          homework_summary?: string;
+          weekly_sessions?: string | null;
+          exercise?: { title?: string; duration_min?: number; modality?: string; focus_tags?: string[] };
+        };
+        const p = (interruptPayload ?? {}) as HwPayload;
+        return (
+          <section
+            className="chat-interrupt"
+            aria-labelledby="hw-confirm-title"
+          >
+            <p className="chat-interrupt__label" id="hw-confirm-title">
+              <span className="chat-interrupt__icon" aria-hidden="true">⏸</span>
+              Подтверждение домашнего плана
+            </p>
+            {p.exercise ? (
+              <div className="chat-interrupt__card">
+                {p.exercise.title && <p className="chat-interrupt__card-title">{p.exercise.title}</p>}
+                {p.homework_summary && <p><strong>Задание:</strong> {p.homework_summary}</p>}
+                {p.exercise.duration_min != null && <p><strong>Длительность:</strong> ~{p.exercise.duration_min} мин</p>}
+                {p.weekly_sessions && <p><strong>Частота:</strong> {p.weekly_sessions}</p>}
+                {p.client_name && <p><strong>Клиент:</strong> {p.client_name}</p>}
+                {p.email && <p><strong>Email:</strong> {p.email}</p>}
+              </div>
+            ) : (
+              <pre className="chat-interrupt__pre">
+                {interruptPayload != null
+                  ? JSON.stringify(interruptPayload, null, 2)
+                  : "Детали плана не переданы."}
+              </pre>
+            )}
+            <div className="chat-interrupt__actions">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => resume("approved")}
+                className="mct-btn mct-btn--primary"
+              >
+                Одобрить
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => resume("rejected")}
+                className="mct-btn mct-btn--ghost"
+              >
+                Отклонить
+              </button>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* ── Footer: session badge + composer ── */}
       <footer className="chat-footer">
@@ -394,6 +437,8 @@ export default function ChatPage() {
           <input
             ref={inputRef}
             type="text"
+            inputMode="text"
+            enterKeyHint="send"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}

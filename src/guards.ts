@@ -8,11 +8,11 @@ import type { ExerciseResource } from "./data";
 import { exerciseResourceArraySchema } from "./schemas";
 
 const PII_PATTERNS: [RegExp, string][] = [
-  [/\b\d{4}\s\d{6}\b/, "[PASSPORT]"],
-  [/\b[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}\b/, "[EMAIL]"],
-  [/\b(?:\d{4}[- ]?){3}\d{4}\b/, "[CARD]"],
+  [/\b\d{4}\s\d{6}\b/g, "[PASSPORT]"],
+  [/\b[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}\b/g, "[EMAIL]"],
+  [/\b(?:\d{4}[- ]?){3}\d{4}\b/g, "[CARD]"],
   [
-    /\b(?:\+?\d{1,3}[- ]?)?\(?\d{3}\)?[- ]?\d{3}[- ]?\d{4}\b/,
+    /(?:\+?\d{1,3}[- ]?)?\(?\d{3}\)?[- ]?\d{3}[- ]?\d{2,4}(?:[- ]?\d{2})?/g,
     "[PHONE]",
   ],
 ];
@@ -112,7 +112,13 @@ const BLOCK_TEXT =
   "Могу обсуждать тревогу, руминацию, внимание, сон и связанные упражнения в образовательном формате. " +
   "Общие вопросы вне этой темы здесь не разбираю.";
 
-/** Первое сообщение: релевантность; лог с маскировкой PII. */
+/**
+ * Guard на входящее сообщение:
+ * - Всегда проверяет первое сообщение в диалоге.
+ * - Последующие: проверяет при подозрительных паттернах (INJECTION_RE) или
+ *   с вероятностью ~1/3 (экономия LLM-вызовов при сохранении защиты).
+ * - Всегда маскирует PII в логах.
+ */
 export async function inputGuard(
   state: { messages: BaseMessage[] },
   classifier: BaseChatModel
@@ -125,9 +131,16 @@ export async function inputGuard(
 
   logMessage("user", content);
 
-  const hasHistory = state.messages.length > 1;
-  if (!hasHistory && !(await isOnTopic(classifier, content))) {
-    console.log(`[GUARD] 🚫 Off-topic blocked: '${maskPii(content).slice(0, 60)}'`);
+  const isFirstMessage = state.messages.length <= 1;
+  const looksInjected = INJECTION_RE.test(content);
+  const shouldCheck =
+    isFirstMessage ||
+    looksInjected ||
+    Math.random() < 1 / 3; // вероятностная проверка последующих сообщений
+
+  if (shouldCheck && !(await isOnTopic(classifier, content))) {
+    const reason = looksInjected ? "injection attempt" : "off-topic";
+    console.log(`[GUARD] 🚫 Blocked (${reason}): '${maskPii(content).slice(0, 60)}'`);
     return { messages: [new AIMessage(BLOCK_TEXT)] };
   }
   return {};

@@ -1,5 +1,6 @@
 import { MemorySaver, type BaseCheckpointSaver } from "@langchain/langgraph";
 import { getDatabaseUrl } from "./database-url";
+import { setupDbSchema } from "./db-schema";
 
 let cached: BaseCheckpointSaver | null = null;
 let initPromise: Promise<BaseCheckpointSaver> | null = null;
@@ -25,8 +26,14 @@ export async function getCheckpointSaver(): Promise<BaseCheckpointSaver> {
         "@langchain/langgraph-checkpoint-postgres"
       );
       const saver = PostgresSaver.fromConnString(url);
-      await saver.setup();
-      console.log("[checkpointer] PostgresSaver инициализирован.");
+      
+      // Инициализируем схемы обоих модулей в рамках единого Promise
+      await Promise.all([
+        saver.setup(),
+        setupDbSchema()
+      ]);
+
+      console.log("[checkpointer] PostgresSaver и схема MCT инициализированы.");
       cached = saver;
       return cached;
     })();

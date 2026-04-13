@@ -8,6 +8,7 @@ export const exerciseResourceSchema = z.object({
   goal_summary: z.string(),
   duration_min: z.number(),
   modality: z.enum(["solo", "guided", "journal"]),
+  domain: z.enum(["mct", "act"]),
   notes: z.string(),
 });
 

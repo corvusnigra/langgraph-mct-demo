@@ -173,6 +173,105 @@ export interface TherapistAnalytics {
   total_sessions_week: number;
 }
 
+export interface ClientDetail {
+  id: string;
+  email: string;
+  profile: Record<string, string>;
+  total_sessions: number;
+  avg_duration_min: number | null;
+  last_session: Date | null;
+  homework_total: number;
+  homework_approved: number;
+  top_exercises: { exercise_id: string; views: number }[];
+  recent_sessions: {
+    session_id: string;
+    started_at: Date;
+    ended_at: Date | null;
+    exercises: string[];
+  }[];
+}
+
+export async function getClientDetail(
+  therapistId: string,
+  clientId: string
+): Promise<ClientDetail | null> {
+  const pool = getPgPool();
+  if (!pool) return null;
+
+  const [userRes, statsRes, exercisesRes, sessionsRes, profileRes] = await Promise.all([
+    pool.query<{ id: string; email: string }>(
+      `SELECT u.id, u.email
+       FROM mct_users u
+       JOIN mct_therapist_clients tc ON tc.client_id = u.id
+       WHERE tc.therapist_id = $1 AND u.id = $2`,
+      [therapistId, clientId]
+    ),
+    pool.query<{
+      total_sessions: number;
+      avg_duration_min: number | null;
+      last_session: Date | null;
+      homework_total: number;
+      homework_approved: number;
+    }>(
+      `SELECT
+         COUNT(DISTINCT s.id)::int                                         AS total_sessions,
+         AVG(EXTRACT(EPOCH FROM (s.ended_at - s.started_at)) / 60)        AS avg_duration_min,
+         MAX(s.started_at)                                                 AS last_session,
+         COUNT(DISTINCT hw.id)::int                                        AS homework_total,
+         COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'approved')::int AS homework_approved
+       FROM mct_users u
+       LEFT JOIN mct_chat_sessions s  ON s.user_id  = u.id
+       LEFT JOIN mct_homework hw      ON hw.user_id  = u.id
+       WHERE u.id = $1`,
+      [clientId]
+    ),
+    pool.query<{ exercise_id: string; views: number }>(
+      `SELECT exercise_id, COUNT(*)::int AS views
+       FROM mct_exercise_logs
+       WHERE user_id = $1
+       GROUP BY exercise_id
+       ORDER BY views DESC
+       LIMIT 10`,
+      [clientId]
+    ),
+    pool.query<{ session_id: string; started_at: Date; ended_at: Date | null; exercises: string[] }>(
+      `SELECT
+         s.id AS session_id, s.started_at, s.ended_at,
+         COALESCE(
+           ARRAY_AGG(DISTINCT el.exercise_id) FILTER (WHERE el.exercise_id IS NOT NULL),
+           '{}'
+         ) AS exercises
+       FROM mct_chat_sessions s
+       LEFT JOIN mct_exercise_logs el ON el.session_id = s.id
+       WHERE s.user_id = $1
+       GROUP BY s.id
+       ORDER BY s.started_at DESC
+       LIMIT 20`,
+      [clientId]
+    ),
+    pool.query<{ data: Record<string, string> }>(
+      `SELECT data FROM mct_profiles WHERE user_id = $1`,
+      [clientId]
+    ),
+  ]);
+
+  const user = userRes.rows[0];
+  if (!user) return null;
+  const stats = statsRes.rows[0];
+
+  return {
+    ...user,
+    profile: profileRes.rows[0]?.data ?? {},
+    total_sessions: stats.total_sessions,
+    avg_duration_min: stats.avg_duration_min,
+    last_session: stats.last_session,
+    homework_total: stats.homework_total,
+    homework_approved: stats.homework_approved,
+    top_exercises: exercisesRes.rows,
+    recent_sessions: sessionsRes.rows,
+  };
+}
+
 export async function getClientThreadIds(userId: string): Promise<string[]> {
   const pool = getPgPool();
   if (!pool) return [];

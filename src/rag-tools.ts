@@ -21,15 +21,12 @@ const STOP_WORDS = new Set([
   "меня", "мне", "мой", "моя", "мои", "же", "ли", "бы",
 ]);
 
-const SCORE_THRESHOLD = 4;
+/** Минимальная доля слов запроса, которые должны присутствовать в chunk-е (0..1). */
+const SCORE_RATIO_THRESHOLD = 0.4;
+/** Абсолютный минимум совпадений для однословных / двусловных запросов. */
+const SCORE_ABS_MIN = 1;
 
-function keywordScore(query: string, chunk: MctReferenceChunk): number {
-  const words = new Set(
-    query
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w && !STOP_WORDS.has(w))
-  );
+function keywordScore(query: string, words: Set<string>, chunk: MctReferenceChunk): number {
   const text = (chunk.title + " " + chunk.content).toLowerCase();
   let n = 0;
   for (const w of words) {
@@ -41,22 +38,34 @@ function keywordScore(query: string, chunk: MctReferenceChunk): number {
 export const lookupMctReference = tool(
   async ({ query }: { query: string }) => {
     console.log(`[TOOL] lookup_mct_reference(query='${query.slice(0, 120)}...')`);
+
+    const queryWords = new Set(
+      query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w && !STOP_WORDS.has(w))
+    );
+    const querySize = Math.max(queryWords.size, 1);
+
     const scored = MCT_REFERENCE.map((chunk) => ({
       chunk,
-      score: keywordScore(query, chunk),
+      score: keywordScore(query, queryWords, chunk),
     }));
+
     const hits = scored.filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
     for (const { chunk, score } of hits) {
-      const ok = score >= SCORE_THRESHOLD ? "✅" : "❌";
-      console.log(`  ${ok} [${score}] ${chunk.title}`);
+      const ratio = score / querySize;
+      const ok = ratio >= SCORE_RATIO_THRESHOLD ? "✅" : "❌";
+      console.log(`  ${ok} [${score}/${querySize}=${ratio.toFixed(2)}] ${chunk.title}`);
     }
+
     const relevant = scored
-      .filter((x) => x.score >= SCORE_THRESHOLD)
+      .filter((x) => x.score >= SCORE_ABS_MIN && x.score / querySize >= SCORE_RATIO_THRESHOLD)
       .sort((a, b) => b.score - a.score)
       .slice(0, 2);
 
     if (relevant.length === 0) {
-      console.log(`[TOOL] lookup_mct_reference → no results above threshold (${SCORE_THRESHOLD})`);
+      console.log(`[TOOL] lookup_mct_reference → no results above threshold`);
       return "Релевантных фрагментов справочника не найдено.";
     }
     const titles = relevant.map((r) => r.chunk.title);

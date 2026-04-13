@@ -49,6 +49,7 @@ import {
   buildToolsByName,
   createChatModel,
   lastAiText,
+  lastAiTextFinal,
   threadConfig,
 } from "./shared";
 
@@ -58,9 +59,15 @@ const AgentState = new StateSchema({
 
 const MAX_CRITIC_REVISIONS = 2;
 
-/** Строит system prompt с профилем пользователя и историей предыдущих сессий. */
+/** Строит system prompt с профилем пользователя и историей сессий; кеширует результат в requestContext (#7). */
 async function buildSystemPrompt(base: string): Promise<string> {
-  const { userId } = requestContext.get();
+  const ctx = requestContext.get();
+  const cacheKey = `__systemPrompt_${base.slice(0, 40)}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cache = ctx as any;
+  if (cache[cacheKey]) return cache[cacheKey] as string;
+
+  const { userId } = ctx;
   const [profile, history] = await Promise.all([
     loadProfileForUser(userId),
     userId ? getRecentSessions(userId) : Promise.resolve([]),
@@ -75,6 +82,7 @@ async function buildSystemPrompt(base: string): Promise<string> {
     });
     system += `\n\n## Предыдущие сессии клиента\n${lines.join("\n")}\n`;
   }
+  cache[cacheKey] = system;
   return system;
 }
 
@@ -86,6 +94,8 @@ const FullGraphAnnotation = Annotation.Root({
   routing_branch: Annotation<AgentBranch>(),
   critic_round: Annotation<number>(),
   critic_last_verdict: Annotation<"pass" | "revise" | undefined>(),
+  /** Счётчик ошибок инструмента для ограничения бесконечных retry (#6). */
+  tool_error_round: Annotation<number>(),
 });
 
 type SystemFn = () => Promise<string>;
@@ -342,8 +352,22 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
         ],
       };
     }
-    const msg = await t.invoke(toolCall);
-    return { messages: [msg] };
+    try {
+      const msg = await t.invoke(toolCall);
+      return { messages: [msg], tool_error_round: 0 };
+    } catch (err) {
+      const round = (state.tool_error_round ?? 0) + 1;
+      console.warn(`[TOOL] ошибка вызова ${toolCall.name} (round ${round}):`, err);
+      return {
+        messages: [
+          new ToolMessage({
+            content: `Ошибка инструмента: ${err instanceof Error ? err.message : String(err)}`,
+            tool_call_id: toolCall.id ?? "",
+          }),
+        ],
+        tool_error_round: round,
+      };
+    }
   };
 
   const toolGuardNode = (state: typeof FullGraphAnnotation.State) =>
@@ -354,12 +378,24 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   ): "toolNode" | "critic" => {
     const lastMessage = state.messages.at(-1);
     if (!lastMessage || !AIMessage.isInstance(lastMessage)) return "critic";
-    if (lastMessage.tool_calls?.length) return "toolNode";
+    if (lastMessage.tool_calls?.length) {
+      // #6: если превышен лимит ошибок tool — идём на критика (не зацикливаться)
+      const MAX_TOOL_ERRORS = 3;
+      if ((state.tool_error_round ?? 0) >= MAX_TOOL_ERRORS) {
+        console.warn(`[TAO] лимит tool_error_round (${MAX_TOOL_ERRORS}) достигнут, передаём критику`);
+        return "critic";
+      }
+      return "toolNode";
+    }
     return "critic";
   };
 
   const criticNode = async (state: typeof FullGraphAnnotation.State) => {
-    const draft = lastAiText(state.messages);
+    const draft = lastAiTextFinal(state.messages); // #8: финальный текст без tool_calls
+    if (!draft) {
+      // Нет финального текста — последним был tool_call, critic пропускаем
+      return { critic_last_verdict: "pass" as const };
+    }
     const verdict = await criticModel.invoke([
       new SystemMessage(CRITIC_SYSTEM),
       new HumanMessage(

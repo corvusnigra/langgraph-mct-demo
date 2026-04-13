@@ -8,6 +8,7 @@ import { getUser } from "@/src/server/auth";
 import { createChatSession, getRecentSessions, closeChatSession } from "@/src/server/session-db";
 import { requestContext } from "@/src/server/request-context";
 import { sendSessionFollowUp } from "@/src/server/email";
+import { isRateLimited } from "@/src/server/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
       { error: "Задайте ANTHROPIC_API_KEY в .env" },
       { status: 500 }
     );
+  }
+
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  if (await isRateLimited(ip)) {
+    return NextResponse.json({ error: "Слишком много запросов. Подождите минуту." }, { status: 429 });
   }
 
   const user = await getUser(req);

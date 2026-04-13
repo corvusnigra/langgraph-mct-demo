@@ -30,6 +30,21 @@ export function lastAiText(messages: BaseMessage[]): string {
   return "";
 }
 
+/**
+ * Последний AI-ответ БЕЗ tool_calls — финальный текст для пользователя.
+ * Используется critic'ом: при поиске через lastAiText мог попасть tool_call AIMessage без текста.
+ */
+export function lastAiTextFinal(messages: BaseMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (AIMessage.isInstance(m) && !(m.tool_calls?.length)) {
+      const c = m.content;
+      return typeof c === "string" ? c : JSON.stringify(c);
+    }
+  }
+  return "";
+}
+
 export function threadConfig(threadId: string): RunnableConfig {
   return { configurable: { thread_id: threadId } };
 }

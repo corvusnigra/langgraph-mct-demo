@@ -1,8 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-/** Корень проекта (CLI и `next dev` запускаются из него). */
-export const PROFILE_PATH = join(process.cwd(), "data", "client_profile.json");
+/**
+ * На Vercel (и в других read-only средах) `process.cwd()` = /var/task — нельзя писать.
+ * Используем /tmp для эфемерного хранения; на Postgres-инстансах файл вообще не нужен.
+ */
+const DATA_DIR = process.env.VERCEL
+  ? "/tmp"
+  : join(process.cwd(), "data");
+export const PROFILE_PATH = join(DATA_DIR, "client_profile.json");
 
 export async function loadProfile(): Promise<Record<string, string>> {
   try {

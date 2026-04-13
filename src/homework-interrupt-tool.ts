@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { interrupt } from "@langchain/langgraph";
 import { EXERCISES } from "./data";
 import { requestContext } from "./server/request-context";
@@ -50,11 +50,7 @@ export const proposeHomeworkPlan = tool(
 
     const ref =
       "HW" +
-      createHash("md5")
-        .update(`${exercise_id}${email}`)
-        .digest("hex")
-        .slice(0, 6)
-        .toUpperCase();
+      randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 
     // Persist to DB if user is authenticated
     const { userId, sessionId } = requestContext.get();

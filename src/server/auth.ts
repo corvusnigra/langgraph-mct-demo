@@ -13,8 +13,10 @@ const SESSION_COOKIE = "mct_session";
 const TOKEN_TTL_MS = 15 * 60 * 1000; // 15 минут
 const SESSION_TTL_DAYS = 30;
 
+import { getCheckpointSaver } from "./checkpointer";
+
 async function ensurePool() {
-  await setupDbSchema();
+  await getCheckpointSaver(); // гарантирует настройку схемы БД без гонок
   const pool = getPgPool();
   if (!pool) throw new Error("Postgres не настроен");
   return pool;
