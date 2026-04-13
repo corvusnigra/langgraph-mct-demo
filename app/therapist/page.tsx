@@ -2,6 +2,16 @@
 
 import { useEffect, useState } from "react";
 
+type Analysis = {
+  main_themes: string[];
+  emotional_patterns: string;
+  engagement: string;
+  key_insights: string[];
+  therapist_recommendations: string[];
+  suggested_exercises: string[];
+  risk_notes: string | null;
+};
+
 type Client = {
   id: string;
   email: string;
@@ -69,6 +79,55 @@ function duration(start: string, end: string | null) {
   return min > 0 ? `${min} мин` : null;
 }
 
+function AnalysisPanel({ analysis }: { analysis: Analysis }) {
+  return (
+    <div className="dash-analysis-panel">
+      {analysis.risk_notes && (
+        <div className="dash-analysis-risk">
+          <span className="dash-analysis-risk__icon">⚠</span>
+          <span>{analysis.risk_notes}</span>
+        </div>
+      )}
+      <div className="dash-analysis-grid">
+        <div className="dash-analysis-block">
+          <h4 className="dash-analysis-block__title">Основные темы</h4>
+          <ul className="dash-analysis-list">
+            {analysis.main_themes.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        </div>
+        <div className="dash-analysis-block">
+          <h4 className="dash-analysis-block__title">Эмоциональные паттерны</h4>
+          <p className="dash-analysis-text">{analysis.emotional_patterns}</p>
+        </div>
+        <div className="dash-analysis-block">
+          <h4 className="dash-analysis-block__title">Вовлечённость в практики</h4>
+          <p className="dash-analysis-text">{analysis.engagement}</p>
+        </div>
+        <div className="dash-analysis-block">
+          <h4 className="dash-analysis-block__title">Ключевые наблюдения</h4>
+          <ul className="dash-analysis-list">
+            {analysis.key_insights.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        </div>
+        <div className="dash-analysis-block dash-analysis-block--accent">
+          <h4 className="dash-analysis-block__title">Рекомендации терапевту</h4>
+          <ul className="dash-analysis-list">
+            {analysis.therapist_recommendations.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        </div>
+        <div className="dash-analysis-block">
+          <h4 className="dash-analysis-block__title">Предлагаемые упражнения</h4>
+          <div className="dash-analysis-tags">
+            {analysis.suggested_exercises.map((e, i) => (
+              <span key={i} className="dash-tag">{e}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TherapistPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [homework, setHomework] = useState<HomeworkItem[]>([]);
@@ -77,6 +136,27 @@ export default function TherapistPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"analytics" | "homework" | "clients">("analytics");
+  const [analyses, setAnalyses] = useState<Record<string, Analysis>>({});
+  const [analysisLoading, setAnalysisLoading] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [openAnalysis, setOpenAnalysis] = useState<string | null>(null);
+
+  const fetchAnalysis = async (clientId: string) => {
+    if (analyses[clientId]) { setOpenAnalysis(clientId); return; }
+    setAnalysisLoading(clientId);
+    setAnalysisError(null);
+    try {
+      const res = await fetch(`/api/therapist/analysis/${clientId}`);
+      const data = (await res.json()) as { analysis?: Analysis; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      setAnalyses((prev) => ({ ...prev, [clientId]: data.analysis! }));
+      setOpenAnalysis(clientId);
+    } catch (e) {
+      setAnalysisError(e instanceof Error ? e.message : "Ошибка загрузки анализа");
+    } finally {
+      setAnalysisLoading(null);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -256,6 +336,10 @@ export default function TherapistPage() {
                 {analytics.clients.length === 0 ? (
                   <p className="dash-empty">Клиенты не прикреплены</p>
                 ) : (
+                  <>
+                  {analysisError && (
+                    <div className="dash-error" role="alert" style={{ marginBottom: "1rem" }}>{analysisError}</div>
+                  )}
                   <div className="dash-table-wrap">
                     <table className="dash-table">
                       <thead>
@@ -267,33 +351,54 @@ export default function TherapistPage() {
                           <th>ДЗ</th>
                           <th>Одобрено</th>
                           <th>Последняя сессия</th>
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
                         {analytics.clients.map((c) => (
-                          <tr key={c.id}>
-                            <td className="dash-table__email">{c.email}</td>
-                            <td>{c.total_sessions}</td>
-                            <td>
-                              {c.avg_duration_min != null
-                                ? `${Math.round(c.avg_duration_min)} мин`
-                                : "—"}
-                            </td>
-                            <td>{c.unique_exercises}</td>
-                            <td>{c.homework_total}</td>
-                            <td>
-                              {c.homework_total > 0 ? (
-                                <span className={`dash-pill${c.homework_approved === c.homework_total ? " dash-pill--ok" : ""}`}>
-                                  {c.homework_approved}/{c.homework_total}
-                                </span>
-                              ) : "—"}
-                            </td>
-                            <td className="dash-table__muted">{fmt(c.last_session)}</td>
-                          </tr>
+                          <>
+                            <tr key={c.id}>
+                              <td className="dash-table__email">{c.email}</td>
+                              <td>{c.total_sessions}</td>
+                              <td>
+                                {c.avg_duration_min != null
+                                  ? `${Math.round(c.avg_duration_min)} мин`
+                                  : "—"}
+                              </td>
+                              <td>{c.unique_exercises}</td>
+                              <td>{c.homework_total}</td>
+                              <td>
+                                {c.homework_total > 0 ? (
+                                  <span className={`dash-pill${c.homework_approved === c.homework_total ? " dash-pill--ok" : ""}`}>
+                                    {c.homework_approved}/{c.homework_total}
+                                  </span>
+                                ) : "—"}
+                              </td>
+                              <td className="dash-table__muted">{fmt(c.last_session)}</td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="dash-analysis-btn"
+                                  disabled={analysisLoading === c.id}
+                                  onClick={() => openAnalysis === c.id ? setOpenAnalysis(null) : fetchAnalysis(c.id)}
+                                >
+                                  {analysisLoading === c.id ? "…" : openAnalysis === c.id ? "Скрыть" : "Анализ ИИ"}
+                                </button>
+                              </td>
+                            </tr>
+                            {openAnalysis === c.id && analyses[c.id] && (
+                              <tr key={`${c.id}-analysis`} className="dash-analysis-row">
+                                <td colSpan={8}>
+                                  <AnalysisPanel analysis={analyses[c.id]} />
+                                </td>
+                              </tr>
+                            )}
+                          </>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </section>
             </div>

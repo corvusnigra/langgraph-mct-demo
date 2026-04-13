@@ -173,6 +173,19 @@ export interface TherapistAnalytics {
   total_sessions_week: number;
 }
 
+export async function getClientThreadIds(userId: string): Promise<string[]> {
+  const pool = getPgPool();
+  if (!pool) return [];
+  const { rows } = await pool.query<{ thread_id: string }>(
+    `SELECT thread_id FROM mct_chat_sessions
+     WHERE user_id = $1
+     ORDER BY started_at DESC
+     LIMIT 10`,
+    [userId]
+  );
+  return rows.map((r) => r.thread_id);
+}
+
 export async function getTherapistAnalytics(
   therapistId: string
 ): Promise<TherapistAnalytics> {
