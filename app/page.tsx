@@ -50,7 +50,7 @@ export default function ChatPage() {
   const [modality, setModality] = useState<"mct" | "act">("mct");
   const [historyLoading, setHistoryLoading] = useState(true); // #11
   const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollDown = () =>
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -327,6 +327,13 @@ export default function ChatPage() {
               key={i}
               className={`chat-msg${msg.role === "user" ? " chat-msg--user" : " chat-msg--bot"}`}
             >
+              <div className={`chat-avatar chat-avatar--${msg.role === "user" ? "user" : "bot"}`} aria-hidden="true">
+                {msg.role === "user" ? (
+                  user?.email?.charAt(0).toUpperCase() ?? "U"
+                ) : (
+                  <svg viewBox="0 0 24 24"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/></svg>
+                )}
+              </div>
               <div className="chat-bubble">
                 {msg.role === "assistant" ? (
                   // #9: рендер markdown для ответов ассистента
@@ -341,7 +348,11 @@ export default function ChatPage() {
           {/* Typing indicator */}
           {loading && (
             <div className="chat-msg chat-msg--bot" role="status">
+              <div className="chat-avatar chat-avatar--bot" aria-hidden="true">
+                 <svg viewBox="0 0 24 24"><path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/></svg>
+              </div>
               <div className="chat-bubble chat-bubble--typing" aria-label="Печатает ответ">
+
                 <span className="chat-dots" aria-hidden="true">
                   <span />
                   <span />
@@ -417,60 +428,74 @@ export default function ChatPage() {
 
       {/* ── Footer: session badge + composer ── */}
       <footer className="chat-footer">
-        <div className="chat-footer__meta">
-          <span className="chat-session-dot" aria-hidden="true" />
-          <span className="chat-session-id" title={tid ?? undefined}>
-            {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
-          </span>
-          <button
-            type="button"
-            className="chat-new-btn"
-            onClick={() => startNewChat()}
-            disabled={loading}
-            aria-label="Начать новый чат"
-          >
-            Новый чат
-          </button>
-        </div>
-
-        <div className="chat-composer">
-          <input
-            ref={inputRef}
-            type="text"
-            inputMode="text"
-            enterKeyHint="send"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="Напишите сообщение…"
-            disabled={loading || interruptOpen || !tid}
-            className="chat-composer__input"
-            aria-label="Текст сообщения"
-            autoComplete="off"
-          />
-          <button
-            type="button"
-            onClick={sendMessage}
-            disabled={loading || interruptOpen || !input.trim() || !tid}
-            className="chat-composer__send"
-            aria-label="Отправить сообщение"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 18 18"
-              fill="none"
-              aria-hidden="true"
+        <div className="chat-footer__inner">
+          <div className="chat-footer__meta">
+            <span className="chat-session-dot" aria-hidden="true" />
+            <span className="chat-session-id" title={tid ?? undefined}>
+              {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
+            </span>
+            <button
+              type="button"
+              className="chat-new-btn"
+              onClick={() => startNewChat()}
+              disabled={loading}
+              aria-label="Начать новый чат"
             >
-              <path
-                d="M9 15V3M9 3L4 8M9 3L14 8"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+              Новый чат
+            </button>
+          </div>
+
+          <div className="chat-composer">
+            <textarea
+              ref={inputRef as any}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                e.target.style.height = "auto";
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!loading && !interruptOpen && tid && input.trim()) {
+                    sendMessage();
+                    if (inputRef.current) (inputRef.current as any).style.height = "auto";
+                  }
+                }
+              }}
+              placeholder="Напишите сообщение…"
+              disabled={loading || interruptOpen || !tid}
+              className="chat-composer__input"
+              aria-label="Текст сообщения"
+              autoComplete="off"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                sendMessage();
+                if (inputRef.current) (inputRef.current as any).style.height = "auto";
+              }}
+              disabled={!input.trim() || loading || interruptOpen || !tid}
+              className="chat-composer__send"
+              aria-label="Отправить сообщение"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M9 15V3M9 3L4 8M9 3L14 8"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </footer>
     </div>
