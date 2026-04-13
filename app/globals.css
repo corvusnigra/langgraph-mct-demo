@@ -603,18 +603,25 @@ a {
 }
 
 /* ═══════════════════════════════════════════════════
-   SHARED BUTTONS (используются на других страницах)
+   SHARED BUTTONS
 ═══════════════════════════════════════════════════ */
 
 .mct-btn {
-  padding: 0.75rem 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.9rem;
-  font-family: inherit;
-  transition: background 0.15s ease, transform 0.1s ease;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .mct-btn:focus-visible {
@@ -623,32 +630,43 @@ a {
 }
 
 .mct-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .mct-btn--primary {
-  background: var(--accent);
-  color: #0a0c10;
+  background: var(--current-accent, var(--accent));
+  color: #0c0f14;
+  box-shadow: 0 2px 8px var(--current-accent-muted, var(--accent-muted));
 }
 
 .mct-btn--primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--current-accent-muted, var(--accent-muted));
+}
+
+.mct-btn--primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .mct-btn--ghost {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  border: 1px solid var(--border);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .mct-btn--ghost:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .mct-btn--sm {
-  padding: 0.25rem 0.75rem;
+  padding: 0.35rem 0.85rem;
   font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
 }
 
 /* ═══════════════════════════════════════════════════
