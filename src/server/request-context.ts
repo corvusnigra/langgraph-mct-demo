@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 export interface RequestCtx {
   userId?: string;
   sessionId?: string;
+  modality?: "mct" | "act";
 }
 
 const storage = new AsyncLocalStorage<RequestCtx>();

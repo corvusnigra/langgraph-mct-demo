@@ -23,14 +23,14 @@ export async function POST(req: NextRequest) {
 
   const user = await getUser(req);
 
-  let body: { threadId: string; message: string; moodBefore?: number };
+  let body: { threadId: string; message: string; moodBefore?: number; modality?: "mct" | "act" };
   try {
-    body = (await req.json()) as { threadId: string; message: string; moodBefore?: number };
+    body = (await req.json()) as { threadId: string; message: string; moodBefore?: number; modality?: "mct" | "act" };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { threadId, message, moodBefore } = body;
+  const { threadId, message, moodBefore, modality } = body;
   if (!threadId || typeof message !== "string") {
     return NextResponse.json(
       { error: "Нужны threadId и message" },
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   let result;
   try {
     result = await requestContext.run(
-      { userId: user?.id, sessionId },
+      { userId: user?.id, sessionId, modality: modality ?? "mct" },
       () => graph.invoke({ messages: [new HumanMessage(message)] }, config)
     );
   } catch (e) {

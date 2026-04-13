@@ -28,6 +28,7 @@ import {
 import {
   COORDINATOR_SYSTEM,
   CRITIC_SYSTEM,
+  SYSTEM_PROMPT_ACT_V4,
   SYSTEM_PROMPT_V2_RAG,
   SYSTEM_PROMPT_V3,
   SYSTEM_PROMPT_V4,
@@ -220,6 +221,12 @@ const criticVerdictSchema = z.object({
   feedback: z.string().optional(),
 });
 
+/** Выбирает базовый промпт полного графа по модальности из requestContext. */
+function getFullGraphBasePrompt(): string {
+  const { modality } = requestContext.get();
+  return modality === "act" ? SYSTEM_PROMPT_ACT_V4 : SYSTEM_PROMPT_V4;
+}
+
 function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
   const cp = checkpointer ?? new MemorySaver();
   const tools = [
@@ -231,7 +238,7 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
   const model = createChatModel();
   const classifier = createChatModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
-    async () => buildSystemPrompt(SYSTEM_PROMPT_V4),
+    async () => buildSystemPrompt(getFullGraphBasePrompt()),
     tools,
     model
   );
@@ -265,7 +272,7 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   );
   const criticModel = createChatModel().withStructuredOutput(criticVerdictSchema);
 
-  const getBaseSystem = () => buildSystemPrompt(SYSTEM_PROMPT_V4);
+  const getBaseSystem = () => buildSystemPrompt(getFullGraphBasePrompt());
 
   const inputGuardNode = async (state: typeof FullGraphAnnotation.State) => {
     return inputGuard(state, classifier);

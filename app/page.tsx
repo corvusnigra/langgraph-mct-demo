@@ -17,15 +17,20 @@ export default function ChatPage() {
   const [interruptOpen, setInterruptOpen] = useState(false);
   const [interruptPayload, setInterruptPayload] = useState<unknown>(null);
   const [user, setUser] = useState<UserInfo | null>(null);
+  const [modality, setModality] = useState<"mct" | "act">("mct");
   const endRef = useRef<HTMLDivElement>(null);
 
   const scrollDown = () =>
     endRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // Восстанавливаем threadId из localStorage, историю — из checkpointer'а
+  // Восстанавливаем модальность, threadId и историю из localStorage/checkpointer'а
   useEffect(() => {
-    const savedTid = localStorage.getItem("mct_thread_id") ?? crypto.randomUUID();
-    localStorage.setItem("mct_thread_id", savedTid);
+    const savedModality = (localStorage.getItem("mct_modality") as "mct" | "act") ?? "mct";
+    setModality(savedModality);
+
+    const key = `mct_thread_id_${savedModality}`;
+    const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
+    localStorage.setItem(key, savedTid);
     setTid(savedTid);
 
     fetch(`/api/history?threadId=${savedTid}`)
@@ -36,15 +41,37 @@ export default function ChatPage() {
       .catch(() => null);
   }, []);
 
-  const startNewChat = useCallback(() => {
+  const startNewChat = useCallback((mod: "mct" | "act" = modality) => {
     const newTid = crypto.randomUUID();
-    localStorage.setItem("mct_thread_id", newTid);
+    localStorage.setItem(`mct_thread_id_${mod}`, newTid);
     setTid(newTid);
     setMessages([]);
     setError(null);
     setInterruptOpen(false);
     setInterruptPayload(null);
-  }, []);
+  }, [modality]);
+
+  const switchModality = useCallback((mod: "mct" | "act") => {
+    if (mod === modality) return;
+    localStorage.setItem("mct_modality", mod);
+    setModality(mod);
+    setMessages([]);
+    setError(null);
+    setInterruptOpen(false);
+    setInterruptPayload(null);
+
+    const key = `mct_thread_id_${mod}`;
+    const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
+    localStorage.setItem(key, savedTid);
+    setTid(savedTid);
+
+    fetch(`/api/history?threadId=${savedTid}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { messages?: Msg[] } | null) => {
+        if (data?.messages?.length) setMessages(data.messages);
+      })
+      .catch(() => null);
+  }, [modality]);
 
   useEffect(() => {
     fetch("/api/users/me")
@@ -68,7 +95,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: tid, message: text }),
+        body: JSON.stringify({ threadId: tid, message: text, modality }),
       });
       const data = await parseApiJson<{
         reply?: string;
@@ -166,21 +193,41 @@ export default function ChatPage() {
           безопасности и сценарий домашнего задания с подтверждением. Работает на
           LangGraph и Claude.
         </p>
-        <div className="mct-thread-row">
-          <p className="mct-thread" title={tid ?? undefined}>
-            <span>Сессия</span>
-            <code>
-              {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
-            </code>
-          </p>
-          <button
-            type="button"
-            className="mct-btn mct-btn--ghost mct-btn--sm"
-            onClick={startNewChat}
-            disabled={loading}
-          >
-            Новый чат
-          </button>
+        <div className="mct-modality-row">
+          <div className="mct-modality-toggle" role="group" aria-label="Выбор подхода">
+            <button
+              type="button"
+              className={`mct-modality-btn${modality === "mct" ? " mct-modality-btn--active" : ""}`}
+              onClick={() => switchModality("mct")}
+              disabled={loading}
+            >
+              МКТ
+            </button>
+            <button
+              type="button"
+              className={`mct-modality-btn${modality === "act" ? " mct-modality-btn--active" : ""}`}
+              onClick={() => switchModality("act")}
+              disabled={loading}
+            >
+              ACT
+            </button>
+          </div>
+          <div className="mct-thread-row">
+            <p className="mct-thread" title={tid ?? undefined}>
+              <span>Сессия</span>
+              <code>
+                {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
+              </code>
+            </p>
+            <button
+              type="button"
+              className="mct-btn mct-btn--ghost mct-btn--sm"
+              onClick={() => startNewChat()}
+              disabled={loading}
+            >
+              Новый чат
+            </button>
+          </div>
         </div>
       </header>
 
