@@ -88,6 +88,36 @@ export async function GET(
   }
 
   const { clientId } = await params;
+  const allowed = await isClientOfTherapist(user.id, clientId);
+  if (!allowed) {
+    return NextResponse.json({ error: "Клиент не прикреплён" }, { status: 403 });
+  }
+
+  const pool = getPgPool();
+  if (pool) {
+    const { rows } = await pool.query(
+      `SELECT analysis, created_at FROM mct_client_analyses WHERE client_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [clientId]
+    );
+    if (rows.length > 0) {
+      return NextResponse.json({ analysis: rows[0].analysis, created_at: rows[0].created_at });
+    }
+  }
+
+  return NextResponse.json({ analysis: null, created_at: null });
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ clientId: string }> }
+) {
+  const user = await getUser(req);
+  if (!user) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  if (user.role !== "therapist" && user.role !== "admin") {
+    return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+  }
+
+  const { clientId } = await params;
 
   const allowed = await isClientOfTherapist(user.id, clientId);
   if (!allowed) {
@@ -119,5 +149,13 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ analysis });
+  const pool = getPgPool();
+  if (pool) {
+    await pool.query(
+      `INSERT INTO mct_client_analyses (client_id, analysis) VALUES ($1, $2)`,
+      [clientId, JSON.stringify(analysis)]
+    );
+  }
+
+  return NextResponse.json({ analysis, created_at: new Date().toISOString() });
 }

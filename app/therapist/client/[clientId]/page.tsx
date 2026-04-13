@@ -101,17 +101,27 @@ export default function ClientPage() {
 
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [analysisDate, setAnalysisDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/therapist/client/${clientId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setDetail(data as ClientDetail);
+    // Параллельная загрузка клиента и его последнего сохранённого аналитика
+    Promise.all([
+      fetch(`/api/therapist/client/${clientId}`).then((r) => r.json()),
+      fetch(`/api/therapist/analysis/${clientId}`).then((r) => r.ok ? r.json() as Promise<{ analysis?: Analysis; created_at?: string }> : {})
+    ])
+      .then(([clientData, analysisData]) => {
+        if (clientData.error) throw new Error(clientData.error);
+        setDetail(clientData as ClientDetail);
+        
+        const ad = analysisData as { analysis?: Analysis; created_at?: string };
+        if (ad.analysis) {
+          setAnalysis(ad.analysis);
+          setAnalysisDate(ad.created_at ?? null);
+        }
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Ошибка загрузки"))
       .finally(() => setLoading(false));
@@ -121,10 +131,11 @@ export default function ClientPage() {
     setAnalysisLoading(true);
     setAnalysisError(null);
     try {
-      const res = await fetch(`/api/therapist/analysis/${clientId}`);
-      const data = (await res.json()) as { analysis?: Analysis; error?: string };
+      const res = await fetch(`/api/therapist/analysis/${clientId}`, { method: "POST" });
+      const data = (await res.json()) as { analysis?: Analysis; created_at?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Ошибка");
       setAnalysis(data.analysis!);
+      setAnalysisDate(data.created_at ?? null);
     } catch (e) {
       setAnalysisError(e instanceof Error ? e.message : "Ошибка загрузки анализа");
     } finally {
@@ -277,18 +288,27 @@ export default function ClientPage() {
               {/* ── AI Analysis ── */}
               <section className="dash-section dash-section--full">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                  <h2 className="dash-section__title" style={{ margin: 0 }}>Анализ ИИ</h2>
-                  {!analysis && (
-                    <button
-                      type="button"
-                      className="dash-analysis-btn"
-                      disabled={analysisLoading}
-                      onClick={loadAnalysis}
-                      style={{ fontSize: "0.9rem", padding: "0.5rem 1.25rem" }}
-                    >
-                      {analysisLoading ? "Генерирую анализ…" : "Сгенерировать анализ"}
-                    </button>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <h2 className="dash-section__title" style={{ margin: 0 }}>Анализ ИИ</h2>
+                    {analysisDate && (
+                      <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
+                        Сгенерирован: {fmt(analysisDate)} {fmtTime(analysisDate)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="dash-analysis-btn"
+                    disabled={analysisLoading}
+                    onClick={loadAnalysis}
+                    style={{ fontSize: "0.9rem", padding: "0.5rem 1.25rem" }}
+                  >
+                    {analysisLoading
+                      ? "Генерирую анализ…"
+                      : analysis
+                      ? "Обновить анализ"
+                      : "Сгенерировать анализ"}
+                  </button>
                 </div>
                 {analysisError && (
                   <div className="dash-error" role="alert">{analysisError}</div>

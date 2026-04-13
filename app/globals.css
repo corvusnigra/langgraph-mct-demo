@@ -1434,17 +1434,37 @@ a {
 .dash-analysis-list {
   margin: 0;
   padding-left: 1.1rem;
+  padding-right: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-secondary);
+  max-height: 180px;
+  overflow-y: auto;
 }
 .dash-analysis-list li { margin-bottom: 0.2rem; }
 
 .dash-analysis-text {
   margin: 0;
+  padding-right: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-secondary);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dash-analysis-list::-webkit-scrollbar,
+.dash-analysis-text::-webkit-scrollbar {
+  width: 4px;
+}
+.dash-analysis-list::-webkit-scrollbar-track,
+.dash-analysis-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-analysis-list::-webkit-scrollbar-thumb,
+.dash-analysis-text::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }
 
 .dash-analysis-tags {

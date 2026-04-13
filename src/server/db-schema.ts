@@ -87,6 +87,13 @@ async function doSetup(): Promise<void> {
       PRIMARY KEY (therapist_id, client_id)
     );
 
+    CREATE TABLE IF NOT EXISTS mct_client_analyses (
+      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id   UUID        NOT NULL REFERENCES mct_users(id) ON DELETE CASCADE,
+      analysis    JSONB       NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+
     -- Индексы для горячих запросов (добавлены: #4)
     CREATE INDEX IF NOT EXISTS idx_auth_tokens_token       ON mct_auth_tokens(token);
     CREATE INDEX IF NOT EXISTS idx_sessions_token          ON mct_sessions(token);
@@ -96,6 +103,7 @@ async function doSetup(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_homework_user           ON mct_homework(user_id);
     CREATE INDEX IF NOT EXISTS idx_homework_status         ON mct_homework(status);
     CREATE INDEX IF NOT EXISTS idx_therapist_clients_th    ON mct_therapist_clients(therapist_id);
+    CREATE INDEX IF NOT EXISTS idx_client_analyses_client  ON mct_client_analyses(client_id);
   `);
 
   console.log("[db-schema] схема MCT инициализирована");
