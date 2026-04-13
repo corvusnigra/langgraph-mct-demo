@@ -48,9 +48,9 @@ function duration(start: string, end: string | null) {
 
 function AnalysisPanel({ analysis }: { analysis: Analysis }) {
   return (
-    <div className="dash-analysis-panel" style={{ padding: "1.5rem", borderRadius: "var(--radius)", border: "1px solid var(--border-subtle)" }}>
+    <div className="dash-analysis-panel">
       {analysis.risk_notes && (
-        <div className="dash-analysis-risk" style={{ marginBottom: "1.25rem" }}>
+        <div className="dash-analysis-risk">
           <span className="dash-analysis-risk__icon">⚠</span>
           <span>{analysis.risk_notes}</span>
         </div>

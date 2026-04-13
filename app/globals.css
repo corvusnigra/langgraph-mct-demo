@@ -1379,10 +1379,11 @@ a {
 .dash-analysis-row td { padding: 0; border-bottom: 1px solid var(--border-subtle); }
 
 .dash-analysis-panel {
-  padding: 1.25rem 1rem 1.25rem 1rem;
+  padding: 1.5rem;
   background: var(--bg-elevated);
-  border-top: 1px solid var(--border-subtle);
-  animation: dash-fade-in 0.2s ease;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  animation: dash-fade-in 0.3s ease-out;
 }
 @keyframes dash-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
@@ -1438,8 +1439,10 @@ a {
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-secondary);
-  max-height: 180px;
+  max-height: 320px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
 }
 .dash-analysis-list li { margin-bottom: 0.2rem; }
 
@@ -1449,22 +1452,26 @@ a {
   font-size: 0.875rem;
   line-height: 1.6;
   color: var(--text-secondary);
-  max-height: 180px;
+  max-height: 320px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
 }
 
 .dash-analysis-list::-webkit-scrollbar,
 .dash-analysis-text::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 .dash-analysis-list::-webkit-scrollbar-track,
 .dash-analysis-text::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
 }
 .dash-analysis-list::-webkit-scrollbar-thumb,
 .dash-analysis-text::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+  background: var(--accent);
+  border-radius: 10px;
+  border: 1px solid var(--bg-elevated);
 }
 
 .dash-analysis-tags {
