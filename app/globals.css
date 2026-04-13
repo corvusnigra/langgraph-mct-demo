@@ -220,14 +220,13 @@ a {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Для выравнивания absolute nav/footer: */
-  padding-top: 56px; 
+  /* padding-top removed to allow content to scroll behind fixed/absolute nav */
 }
 
-/* Thinking bar — 2px shimmer у верхнего края */
+/* Thinking bar — 2px shimmer у верхнего края (смещен под хедер) */
 .chat-thinking-bar {
   position: absolute;
-  top: 0;
+  top: 56px; 
   left: 0;
   right: 0;
   height: 2px;
@@ -261,8 +260,9 @@ a {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  /* Значительный отступ снизу, чтобы контент прокручивался за подвал */
-  padding: 1.5rem 1.25rem 140px; 
+  /* Отступы: сверху чтобы не перекрывалось хедером (56px + 16px), 
+     снизу чтобы не перекрывалось подвалом (до 140px) */
+  padding: 4.5rem 1.25rem 140px; 
   scroll-behavior: smooth;
   /* центрируем ленту на широких экранах */
   display: flex;
