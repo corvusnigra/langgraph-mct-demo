@@ -939,7 +939,7 @@ a {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  padding-top: 64px; /* Space for fixed glass nav */
+  /* padding-top removed to allow content to scroll behind fixed nav */
 }
 
 /* ── Floating Nav with Glassmorphism ── */
@@ -1015,7 +1015,8 @@ a {
 /* ── Main ── */
 .dash-main {
   flex: 1;
-  padding: 2.5rem 1.5rem 4rem;
+  /* 2.5rem (basic padding) + 64px (header) = ~6.5rem */
+  padding: 6.5rem 1.5rem 4rem;
   max-width: 1280px;
   margin: 0 auto;
   width: 100%;
