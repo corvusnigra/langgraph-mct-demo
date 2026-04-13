@@ -22,8 +22,28 @@ export default function ChatPage() {
   const scrollDown = () =>
     endRef.current?.scrollIntoView({ behavior: "smooth" });
 
+  // Восстанавливаем threadId из localStorage, историю — из checkpointer'а
   useEffect(() => {
-    setTid(crypto.randomUUID());
+    const savedTid = localStorage.getItem("mct_thread_id") ?? crypto.randomUUID();
+    localStorage.setItem("mct_thread_id", savedTid);
+    setTid(savedTid);
+
+    fetch(`/api/history?threadId=${savedTid}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { messages?: Msg[] } | null) => {
+        if (data?.messages?.length) setMessages(data.messages);
+      })
+      .catch(() => null);
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    const newTid = crypto.randomUUID();
+    localStorage.setItem("mct_thread_id", newTid);
+    setTid(newTid);
+    setMessages([]);
+    setError(null);
+    setInterruptOpen(false);
+    setInterruptPayload(null);
   }, []);
 
   useEffect(() => {
@@ -146,12 +166,22 @@ export default function ChatPage() {
           безопасности и сценарий домашнего задания с подтверждением. Работает на
           LangGraph и Claude.
         </p>
-        <p className="mct-thread" title={tid ?? undefined}>
-          <span>Сессия</span>
-          <code>
-            {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
-          </code>
-        </p>
+        <div className="mct-thread-row">
+          <p className="mct-thread" title={tid ?? undefined}>
+            <span>Сессия</span>
+            <code>
+              {tid ? `${tid.slice(0, 8)}…${tid.slice(-4)}` : "…"}
+            </code>
+          </p>
+          <button
+            type="button"
+            className="mct-btn mct-btn--ghost mct-btn--sm"
+            onClick={startNewChat}
+            disabled={loading}
+          >
+            Новый чат
+          </button>
+        </div>
       </header>
 
       <div
