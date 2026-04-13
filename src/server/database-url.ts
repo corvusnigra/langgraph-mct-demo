@@ -8,6 +8,9 @@ const URL_KEYS = [
   "POSTGRES_PRISMA_URL",
   "STORAGE_URL",
   "NEON_DATABASE_URL",
+  // Vercel Neon integration
+  "DATABASE_POSTGRES_URL_NON_POOLING",
+  "DATABASE_POSTGRES_URL_NO_SSL",
 ] as const;
 
 export function getDatabaseUrl(): string | undefined {
