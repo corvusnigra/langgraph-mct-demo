@@ -142,6 +142,15 @@ export default function ClientPage() {
     diagnosis: "Диагноз",
     goals: "Цели терапии",
     notes: "Заметки",
+    interests: "Интересы",
+    focus_area: "Зона фокуса",
+    state: "Состояние",
+    mood: "Настроение",
+    family: "Семья",
+    hobbies: "Хобби",
+    symptoms: "Симптомы",
+    challenges: "Сложности",
+    triggers: "Триггеры",
   };
 
   return (
