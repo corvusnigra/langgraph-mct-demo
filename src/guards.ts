@@ -69,30 +69,13 @@ export function toolOutputGuard(
     const validated = exerciseResourceArraySchema.safeParse(raw);
     if (!validated.success) {
       console.warn("[GUARD] search_exercises_or_resources: ошибка валидации JSON", validated.error);
-      return {
-        messages: [
-          new ToolMessage({
-            content: "Ошибка: результат поиска не прошёл валидацию. Повторите запрос.",
-            tool_call_id: lastMsg.tool_call_id,
-            name: lastMsg.name,
-            id: lastMsg.id,
-          }),
-        ],
-      };
+      return {};
     }
     items = validated.data;
-  } catch (err) {
-    console.warn("[GUARD] search_exercises_or_resources: не удалось разобрать JSON", err);
-    return {
-      messages: [
-        new ToolMessage({
-          content: "Ошибка: не удалось разобрать результат поиска.",
-          tool_call_id: lastMsg.tool_call_id,
-          name: lastMsg.name,
-          id: lastMsg.id,
-        }),
-      ],
-    };
+  } catch {
+    // Контент не является JSON — инструмент уже вернул текстовое сообщение
+    // (например, «По запросу ничего не найдено»). Пропускаем без изменений.
+    return {};
   }
 
   const clean: ExerciseResource[] = [];
@@ -110,8 +93,13 @@ export function toolOutputGuard(
 
   if (clean.length === items.length) return {};
 
+  const content =
+    clean.length === 0
+      ? "По запросу ничего не найдено. Попробуйте другие ключевые слова (тревога, сон, внимание, руминация)."
+      : JSON.stringify(clean);
+
   const cleaned = new ToolMessage({
-    content: JSON.stringify(clean),
+    content,
     tool_call_id: lastMsg.tool_call_id,
     name: lastMsg.name,
     id: lastMsg.id,
