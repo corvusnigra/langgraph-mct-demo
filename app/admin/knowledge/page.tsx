@@ -102,6 +102,8 @@ export default function KnowledgePage() {
         const remaining = data.remaining ?? 0;
         setReembedResult(`Проиндексировано: ${totalUpdated}${remaining > 0 ? `, осталось: ${remaining}…` : " ✓"}`);
         if (remaining <= 0) break;
+        // Voyage AI free plan: 3 RPM → ждём 21с между батчами
+        await new Promise((r) => setTimeout(r, 21000));
       }
     } catch (e) {
       setReembedResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
