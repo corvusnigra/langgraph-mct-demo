@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 type SearchResult = {
   id: string;
   content: string;
-  score: number;
+  score: number | string;
   source_title: string;
   metadata: { chunk_index?: number; file_name?: string };
 };
@@ -32,8 +32,8 @@ function ModeTag({ mode }: { mode: "vector" | "fulltext" | "none" }) {
   return null;
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const pct = Math.min(score, 1);
+function ScoreBadge({ score }: { score: number | string }) {
+  const pct = Math.min(parseFloat(String(score)), 1);
   const color = pct >= 0.75 ? "#10b981" : pct >= 0.5 ? "#f59e0b" : "var(--muted)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
@@ -41,7 +41,7 @@ function ScoreBadge({ score }: { score: number }) {
         <div style={{ height: "100%", borderRadius: "2px", background: color, width: `${pct * 100}%` }} />
       </div>
       <span style={{ fontSize: "0.75rem", color, fontWeight: 600, minWidth: "2.5rem" }}>
-        {score.toFixed(3)}
+        {pct.toFixed(3)}
       </span>
     </div>
   );
