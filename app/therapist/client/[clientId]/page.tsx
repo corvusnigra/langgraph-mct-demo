@@ -169,9 +169,130 @@ function DurationChart({ sessions }: {
   );
 }
 
+function RadarChart({ values }: { values: { label: string; value: number; max: number }[] }) {
+  const cx = 100, cy = 100, r = 75;
+  const n = values.length;
+  const angle = (i: number) => (i * 2 * Math.PI) / n - Math.PI / 2;
+
+  const gridLevels = [0.25, 0.5, 0.75, 1];
+  const axisPoints = values.map((_, i) => ({
+    x: cx + r * Math.cos(angle(i)),
+    y: cy + r * Math.sin(angle(i)),
+  }));
+
+  const dataPoints = values.map((v, i) => {
+    const ratio = v.max > 0 ? Math.min(v.value / v.max, 1) : 0;
+    return {
+      x: cx + r * ratio * Math.cos(angle(i)),
+      y: cy + r * ratio * Math.sin(angle(i)),
+    };
+  });
+
+  const dataPath = dataPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ") + "Z";
+
+  return (
+    <svg width="200" height="200" viewBox="0 0 200 200" style={{ overflow: "visible" }}>
+      {/* Grid levels */}
+      {gridLevels.map((lvl) => {
+        const pts = values.map((_, i) => {
+          const x = cx + r * lvl * Math.cos(angle(i));
+          const y = cy + r * lvl * Math.sin(angle(i));
+          return `${i === 0 ? "M" : "L"}${x},${y}`;
+        }).join(" ") + "Z";
+        return <path key={lvl} d={pts} fill="none" stroke="var(--border-subtle)" strokeWidth="1" />;
+      })}
+      {/* Axes */}
+      {axisPoints.map((pt, i) => (
+        <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y}
+          stroke="var(--border-subtle)" strokeWidth="1" />
+      ))}
+      {/* Data area */}
+      <path d={dataPath} fill="var(--accent)" fillOpacity="0.2" stroke="var(--accent)" strokeWidth="2" />
+      {/* Data points */}
+      {dataPoints.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={4} fill="var(--accent)" />
+      ))}
+      {/* Labels */}
+      {values.map((v, i) => {
+        const lx = cx + (r + 18) * Math.cos(angle(i));
+        const ly = cy + (r + 18) * Math.sin(angle(i));
+        return (
+          <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+            fontSize="9" fill="var(--muted)" style={{ fontWeight: 500 }}>
+            {v.label}
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+function RiskMeter({ riskNotes }: { riskNotes: string | null }) {
+  const hasRisk = !!riskNotes;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
+      <svg width="90" height="90" viewBox="0 0 90 90">
+        {/* Background arc */}
+        <path d="M15,65 A38,38 0 0,1 75,65" fill="none" stroke="var(--border-subtle)" strokeWidth="7" strokeLinecap="round" />
+        {/* Color arc */}
+        <path d="M15,65 A38,38 0 0,1 75,65" fill="none"
+          stroke={hasRisk ? "#ef4444" : "#10b981"}
+          strokeWidth="7" strokeLinecap="round"
+          strokeDasharray={hasRisk ? "119 0" : "60 59"}
+        />
+        {/* Icon */}
+        <text x="45" y="58" textAnchor="middle" fontSize="22">
+          {hasRisk ? "⚠" : "✓"}
+        </text>
+      </svg>
+      <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--muted)", textAlign: "center" }}>
+        {hasRisk ? "Есть риски" : "Рисков нет"}
+      </p>
+    </div>
+  );
+}
+
 function AnalysisPanel({ analysis }: { analysis: Analysis }) {
+  const radarValues = [
+    { label: "Темы", value: analysis.main_themes.length, max: 5 },
+    { label: "Наблюдения", value: analysis.key_insights.length, max: 4 },
+    { label: "Рекомендации", value: analysis.therapist_recommendations.length, max: 5 },
+    { label: "Упражнения", value: analysis.suggested_exercises.length, max: 3 },
+  ];
+
   return (
     <div className="dash-analysis-panel">
+      {/* Charts row */}
+      <div style={{ display: "flex", gap: "2rem", alignItems: "center", marginBottom: "1.5rem",
+        padding: "1.25rem", background: "var(--surface-hover)", borderRadius: "var(--radius)",
+        flexWrap: "wrap" }}>
+        <div style={{ flex: "0 0 auto" }}>
+          <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", color: "var(--muted)",
+            textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+            Профиль анализа
+          </p>
+          <RadarChart values={radarValues} />
+        </div>
+        <div style={{ flex: 1, minWidth: "180px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            {radarValues.map((v) => (
+              <div key={v.label}>
+                <div style={{ display: "flex", justifyContent: "space-between",
+                  fontSize: "0.8rem", marginBottom: "0.2rem" }}>
+                  <span style={{ color: "var(--muted)" }}>{v.label}</span>
+                  <span style={{ fontWeight: 600 }}>{v.value}/{v.max}</span>
+                </div>
+                <div style={{ height: "4px", background: "var(--border-subtle)", borderRadius: "2px" }}>
+                  <div style={{ height: "100%", borderRadius: "2px", background: "var(--accent)",
+                    width: `${(v.value / v.max) * 100}%`, transition: "width 0.5s ease" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <RiskMeter riskNotes={analysis.risk_notes} />
+      </div>
+
       {analysis.risk_notes && (
         <div className="dash-analysis-risk">
           <span className="dash-analysis-risk__icon">⚠</span>
