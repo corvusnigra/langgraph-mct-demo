@@ -187,22 +187,22 @@ export default function TherapistPage() {
               <div className="dash-card">
                 <span className="dash-card__value">{analytics.clients.length}</span>
                 <span className="dash-card__label">Клиентов</span>
-                <svg className="dash-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <svg className="dash-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{analytics.total_sessions_week}</span>
                 <span className="dash-card__label">Сессий за 7 дней</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M12 2v20"/><path d="m4.93 4.93 14.14 14.14"/><path d="M2 12h20"/><path d="m19.07 4.93-14.14 14.14"/></svg>
+                <svg className="dash-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px" }}><path d="M12 2v20"/><path d="m4.93 4.93 14.14 14.14"/><path d="M2 12h20"/><path d="m19.07 4.93-14.14 14.14"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{homework.length}</span>
                 <span className="dash-card__label">Заданий на проверке</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <svg className="dash-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px" }}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </div>
               <div className="dash-card">
                 <span className="dash-card__value">{analytics.top_exercises.length}</span>
                 <span className="dash-card__label">Упражнений в каталоге</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px", opacity: 0.1 }}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <svg className="dash-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: "absolute", right: "1.5rem", bottom: "1.5rem", width: "24px" }}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
               </div>
             </div>
 

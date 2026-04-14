@@ -258,6 +258,7 @@ export default function ChatPage() {
             disabled={loading}
             aria-pressed={modality === "mct"}
           >
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#5b9fd4", marginRight: "0.4rem", verticalAlign: "middle", opacity: modality === "mct" ? 1 : 0.5 }} aria-hidden="true" />
             МКТ
           </button>
           <button
@@ -267,6 +268,7 @@ export default function ChatPage() {
             disabled={loading}
             aria-pressed={modality === "act"}
           >
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#4db8a0", marginRight: "0.4rem", verticalAlign: "middle", opacity: modality === "act" ? 1 : 0.5 }} aria-hidden="true" />
             ACT
           </button>
         </div>
