@@ -46,6 +46,129 @@ function duration(start: string, end: string | null) {
   return min > 0 ? `${min} мин` : null;
 }
 
+// ── SVG Charts ──────────────────────────────────────────────────────────────
+
+function DonutChart({ value, max, label, color = "var(--accent)" }: {
+  value: number; max: number; label: string; color?: string;
+}) {
+  const r = 34;
+  const circ = 2 * Math.PI * r;
+  const pct = max > 0 ? Math.min(value / max, 1) : 0;
+  const dash = pct * circ;
+  return (
+    <div style={{ textAlign: "center", flex: "0 0 auto" }}>
+      <svg width="90" height="90" viewBox="0 0 90 90">
+        <circle cx="45" cy="45" r={r} fill="none" stroke="var(--border-subtle)" strokeWidth="7" />
+        {max > 0 && (
+          <circle cx="45" cy="45" r={r} fill="none" stroke={color} strokeWidth="7"
+            strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
+            transform="rotate(-90 45 45)"
+            style={{ transition: "stroke-dasharray 0.6s ease" }}
+          />
+        )}
+        <text x="45" y="41" textAnchor="middle" fontSize="15" fontWeight="700" fill="currentColor">
+          {max > 0 ? `${Math.round(pct * 100)}%` : "—"}
+        </text>
+        <text x="45" y="57" textAnchor="middle" fontSize="10" fill="var(--muted)">
+          {value}/{max}
+        </text>
+      </svg>
+      <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", color: "var(--muted)" }}>{label}</p>
+    </div>
+  );
+}
+
+function SessionActivityChart({ sessions }: {
+  sessions: Array<{ started_at: string }>;
+}) {
+  const DAYS = 28;
+  const today = new Date();
+  const counts = new Map<string, number>();
+  for (let i = 0; i < DAYS; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    counts.set(d.toISOString().slice(0, 10), 0);
+  }
+  for (const s of sessions) {
+    const key = s.started_at.slice(0, 10);
+    if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const entries = [...counts.entries()].reverse();
+  const maxC = Math.max(1, ...entries.map(([, v]) => v));
+  const barW = 14, gap = 4, H = 50;
+  const totalW = DAYS * (barW + gap) - gap;
+  return (
+    <svg width="100%" viewBox={`0 0 ${totalW} ${H + 18}`} preserveAspectRatio="none">
+      {entries.map(([date, count], i) => {
+        const bH = count > 0 ? Math.max(5, (count / maxC) * H) : 3;
+        const x = i * (barW + gap);
+        const y = H - bH;
+        const d = new Date(date + "T00:00:00");
+        return (
+          <g key={date}>
+            <rect x={x} y={y} width={barW} height={bH} rx={3}
+              fill={count > 0 ? "var(--accent)" : "var(--border-subtle)"}
+              opacity={count > 0 ? 0.85 : 0.35}
+            />
+            {i % 7 === 0 && (
+              <text x={x + barW / 2} y={H + 14} textAnchor="middle" fontSize="8" fill="var(--muted)">
+                {`${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}`}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function DurationChart({ sessions }: {
+  sessions: Array<{ started_at: string; ended_at: string | null }>;
+}) {
+  const pts = sessions
+    .filter((s) => s.ended_at)
+    .map((s) => ({
+      min: Math.round((new Date(s.ended_at!).getTime() - new Date(s.started_at).getTime()) / 60000),
+      label: new Date(s.started_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }),
+    }))
+    .filter((s) => s.min > 0 && s.min < 300)
+    .reverse()
+    .slice(-12);
+
+  if (pts.length < 2) return <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>Недостаточно данных</p>;
+
+  const maxMin = Math.max(...pts.map((p) => p.min));
+  const W = 320, H = 60;
+  const step = W / (pts.length - 1);
+  const points = pts.map((p, i) => ({ x: i * step, y: H - (p.min / maxMin) * H, ...p }));
+  const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+  const area = `${line} L${points[points.length - 1].x},${H} L0,${H}Z`;
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H + 20}`} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="dur-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#dur-g)" />
+      <path d={line} fill="none" stroke="var(--accent)" strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" />
+      {points.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={3} fill="var(--accent)" />
+          {(i === 0 || i === pts.length - 1 || pts.length <= 6) && (
+            <text x={p.x} y={H + 14} textAnchor="middle" fontSize="8" fill="var(--muted)">
+              {p.min}м
+            </text>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function AnalysisPanel({ analysis }: { analysis: Analysis }) {
   return (
     <div className="dash-analysis-panel">
@@ -219,6 +342,39 @@ export default function ClientPage() {
             </div>
 
             <div className="dash-grid">
+              {/* ── Charts ── */}
+              <section className="dash-section dash-section--wide">
+                <h2 className="dash-section__title">Активность</h2>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2rem", alignItems: "start" }}>
+                  <div>
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Сессии — последние 28 дней
+                    </p>
+                    <SessionActivityChart sessions={detail.recent_sessions} />
+                  </div>
+                  <div>
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.8rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Длительность сессий
+                    </p>
+                    <DurationChart sessions={detail.recent_sessions} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+                    <DonutChart
+                      value={detail.homework_approved}
+                      max={detail.homework_total}
+                      label="ДЗ одобрено"
+                      color="var(--accent)"
+                    />
+                    <DonutChart
+                      value={detail.total_sessions}
+                      max={Math.max(detail.total_sessions, 10)}
+                      label="Сессий всего"
+                      color="#10b981"
+                    />
+                  </div>
+                </div>
+              </section>
+
               {/* ── Profile ── */}
               {Object.keys(detail.profile).length > 0 && (
                 <section className="dash-section">
