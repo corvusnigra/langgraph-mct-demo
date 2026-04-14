@@ -146,6 +146,9 @@ export default function KnowledgePage() {
           База знаний
         </div>
         <div className="dash-nav__actions">
+          <a href="/admin/knowledge/search" className="mct-btn mct-btn--ghost mct-btn--sm">
+            Поиск по книгам
+          </a>
           <a href="/therapist" className="mct-btn mct-btn--ghost mct-btn--sm">
             ← Дашборд
           </a>
