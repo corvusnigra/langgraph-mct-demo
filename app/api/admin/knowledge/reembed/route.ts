@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Обрабатываем за один вызов не более 256 чанков (≈2 батча Voyage, укладывается в таймаут)
-  const LIMIT = 256;
+  const LIMIT = 100;
   const { rows } = await pool.query<{ id: string; content: string }>(
     `SELECT id::text, content FROM mct_knowledge_chunks WHERE embedding IS NULL ORDER BY chunk_index LIMIT $1`,
     [LIMIT]
