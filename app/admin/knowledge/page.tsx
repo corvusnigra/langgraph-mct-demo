@@ -280,11 +280,13 @@ export default function KnowledgePage() {
           ) : sources.length === 0 ? (
             <div className="dash-empty">
               <svg
-                className="dash-empty__icon"
+                width="40"
+                height="40"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.5"
                 viewBox="0 0 24 24"
+                style={{ opacity: 0.35, margin: "0 auto 0.5rem" }}
               >
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
