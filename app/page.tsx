@@ -55,37 +55,79 @@ export default function ChatPage() {
   const scrollDown = () =>
     endRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // Восстанавливаем модальность, threadId и историю из localStorage/checkpointer'а
+  // userId ref для использования внутри callbacks без пересоздания
+  const userIdRef = useRef<string>("");
+
+  // threadKey — ключ localStorage с namespace по userId
+  const threadKey = (mod: "mct" | "act") =>
+    userIdRef.current
+      ? `mct_thread_${userIdRef.current}_${mod}`
+      : `mct_thread_id_${mod}`;
+
+  const loadHistory = useCallback(async (tid: string, mod: "mct" | "act") => {
+    setHistoryLoading(true);
+    try {
+      const r = await fetch(`/api/history?threadId=${tid}`);
+      const data = r.ok ? (await r.json()) as { messages?: Msg[]; foreign?: boolean } : null;
+      if (data?.foreign) {
+        // Тред принадлежит другому пользователю — сбрасываем
+        const newTid = crypto.randomUUID();
+        localStorage.setItem(threadKey(mod), newTid);
+        setTid(newTid);
+        setMessages([]);
+      } else if (data?.messages?.length) {
+        setMessages(data.messages);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setHistoryLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Инициализация: сначала грузим юзера, потом threadId с namespace по userId
   useEffect(() => {
-    const savedModality =
-      (localStorage.getItem("mct_modality") as "mct" | "act") ?? "mct";
-    setModality(savedModality);
+    const init = async () => {
+      // 1. Загружаем текущего пользователя
+      try {
+        const r = await fetch("/api/auth/me");
+        const data = r.ok ? (await r.json()) as { user: UserInfo | null } : null;
+        if (data?.user) {
+          setUser(data.user);
+          userIdRef.current = data.user.id;
+        }
+      } catch { /* ignore */ }
 
-    const key = `mct_thread_id_${savedModality}`;
-    const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
-    localStorage.setItem(key, savedTid);
-    setTid(savedTid);
+      // 2. Восстанавливаем модальность
+      const savedModality =
+        (localStorage.getItem("mct_modality") as "mct" | "act") ?? "mct";
+      setModality(savedModality);
 
-    setHistoryLoading(true); // #11
-    fetch(`/api/history?threadId=${savedTid}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { messages?: Msg[] } | null) => {
-        if (data?.messages?.length) setMessages(data.messages);
-      })
-      .catch(() => null)
-      .finally(() => setHistoryLoading(false)); // #11
+      // 3. threadId с namespace по userId
+      const key = threadKey(savedModality);
+      const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
+      localStorage.setItem(key, savedTid);
+      setTid(savedTid);
+
+      // 4. Загружаем историю с проверкой владельца
+      await loadHistory(savedTid, savedModality);
+    };
+    void init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startNewChat = useCallback(
     (mod: "mct" | "act" = modality) => {
       const newTid = crypto.randomUUID();
-      localStorage.setItem(`mct_thread_id_${mod}`, newTid);
+      localStorage.setItem(threadKey(mod), newTid);
       setTid(newTid);
       setMessages([]);
       setError(null);
       setInterruptOpen(false);
       setInterruptPayload(null);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [modality]
   );
 
@@ -99,29 +141,16 @@ export default function ChatPage() {
       setInterruptOpen(false);
       setInterruptPayload(null);
 
-      const key = `mct_thread_id_${mod}`;
+      const key = threadKey(mod);
       const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
       localStorage.setItem(key, savedTid);
       setTid(savedTid);
 
-      setHistoryLoading(true); // #11
-      fetch(`/api/history?threadId=${savedTid}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: { messages?: Msg[] } | null) => {
-          if (data?.messages?.length) setMessages(data.messages);
-        })
-        .catch(() => null)
-        .finally(() => setHistoryLoading(false)); // #11
+      void loadHistory(savedTid, mod);
     },
-    [modality]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [modality, loadHistory]
   );
-
-  useEffect(() => {
-    fetch("/api/users/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data as UserInfo | null))
-      .catch(() => null);
-  }, []);
 
   useEffect(() => {
     scrollDown();
@@ -261,6 +290,12 @@ export default function ChatPage() {
                 className="mct-btn mct-btn--ghost mct-btn--sm"
                 onClick={async () => {
                   await fetch("/api/auth/logout", { method: "POST" });
+                  // Очищаем threadId текущего пользователя из localStorage
+                  if (userIdRef.current) {
+                    ["mct", "act"].forEach((mod) =>
+                      localStorage.removeItem(`mct_thread_${userIdRef.current}_${mod}`)
+                    );
+                  }
                   window.location.href = "/login";
                 }}
               >
