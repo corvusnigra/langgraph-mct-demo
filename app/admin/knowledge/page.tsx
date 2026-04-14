@@ -23,6 +23,8 @@ export default function KnowledgePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [reembedding, setReembedding] = useState(false);
+  const [reembedResult, setReembedResult] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [voyageAvailable, setVoyageAvailable] = useState<boolean | null>(null);
@@ -83,6 +85,21 @@ export default function KnowledgePage() {
       setError(e instanceof Error ? e.message : "Ошибка загрузки файла");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleReembed() {
+    setReembedding(true);
+    setReembedResult(null);
+    try {
+      const res = await fetch("/api/admin/knowledge/reembed", { method: "POST" });
+      const data = (await res.json()) as { ok?: boolean; updated?: number; total?: number; message?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Ошибка");
+      setReembedResult(data.message ?? `Обновлено ${data.updated} из ${data.total ?? data.updated} чанков`);
+    } catch (e) {
+      setReembedResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setReembedding(false);
     }
   }
 
@@ -262,14 +279,32 @@ export default function KnowledgePage() {
 
         {/* Sources list */}
         <section className="dash-section dash-section--full">
-          <h2 className="dash-section__title">
-            Загруженные источники
-            {sources.length > 0 && (
-              <span className="dash-badge" style={{ marginLeft: "0.5rem" }}>
-                {sources.length}
-              </span>
-            )}
-          </h2>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", flexWrap: "wrap", gap: "0.75rem" }}>
+            <h2 className="dash-section__title" style={{ margin: 0 }}>
+              Загруженные источники
+              {sources.length > 0 && (
+                <span className="dash-badge" style={{ marginLeft: "0.5rem" }}>
+                  {sources.length}
+                </span>
+              )}
+            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              {reembedResult && (
+                <span style={{ fontSize: "0.8rem", color: reembedResult.startsWith("Ошибка") ? "var(--error, #ef4444)" : "#10b981" }}>
+                  {reembedResult}
+                </span>
+              )}
+              <button
+                type="button"
+                className="mct-btn mct-btn--ghost mct-btn--sm"
+                onClick={handleReembed}
+                disabled={reembedding || sources.length === 0}
+                title="Создать векторные эмбеддинги для чанков без них (требует VOYAGE_API_KEY)"
+              >
+                {reembedding ? "Индексирую…" : "Переиндексировать"}
+              </button>
+            </div>
+          </div>
 
           {loading ? (
             <div className="dash-loading">

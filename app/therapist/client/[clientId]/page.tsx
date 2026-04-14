@@ -11,6 +11,22 @@ type Analysis = {
   therapist_recommendations: string[];
   suggested_exercises: string[];
   risk_notes: string | null;
+  act_hexaflex?: {
+    acceptance: number;
+    defusion: number;
+    present_moment: number;
+    self_as_context: number;
+    values: number;
+    committed_action: number;
+  };
+  mct_profile?: {
+    detached_mindfulness: number;
+    attentional_flexibility: number;
+    metacognitive_awareness: number;
+    rumination_control: number;
+    adaptive_strategies: number;
+    emotional_regulation: number;
+  };
 };
 
 type ClientDetail = {
@@ -252,44 +268,95 @@ function RiskMeter({ riskNotes }: { riskNotes: string | null }) {
   );
 }
 
+function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.2rem" }}>
+        <span style={{ color: "var(--muted)" }}>{label}</span>
+        <span style={{ fontWeight: 600 }}>{value}/10</span>
+      </div>
+      <div style={{ height: "4px", background: "var(--border-subtle)", borderRadius: "2px" }}>
+        <div style={{ height: "100%", borderRadius: "2px", background: color,
+          width: `${(value / 10) * 100}%`, transition: "width 0.5s ease" }} />
+      </div>
+    </div>
+  );
+}
+
 function AnalysisPanel({ analysis }: { analysis: Analysis }) {
-  const radarValues = [
-    { label: "Темы", value: analysis.main_themes.length, max: 5 },
-    { label: "Наблюдения", value: analysis.key_insights.length, max: 4 },
-    { label: "Рекомендации", value: analysis.therapist_recommendations.length, max: 5 },
-    { label: "Упражнения", value: analysis.suggested_exercises.length, max: 3 },
-  ];
+  const hx = analysis.act_hexaflex;
+  const mct = analysis.mct_profile;
+
+  const actValues = hx ? [
+    { label: "Принятие", value: hx.acceptance, max: 10 },
+    { label: "Расцепление", value: hx.defusion, max: 10 },
+    { label: "Настоящее", value: hx.present_moment, max: 10 },
+    { label: "Я-контекст", value: hx.self_as_context, max: 10 },
+    { label: "Ценности", value: hx.values, max: 10 },
+    { label: "Действие", value: hx.committed_action, max: 10 },
+  ] : null;
+
+  const mctValues = mct ? [
+    { label: "Детач. осознанность", value: mct.detached_mindfulness, max: 10 },
+    { label: "Гибкость внимания", value: mct.attentional_flexibility, max: 10 },
+    { label: "Мета-осознанность", value: mct.metacognitive_awareness, max: 10 },
+    { label: "Контроль руминации", value: mct.rumination_control, max: 10 },
+    { label: "Адапт. стратегии", value: mct.adaptive_strategies, max: 10 },
+    { label: "Эмоц. регуляция", value: mct.emotional_regulation, max: 10 },
+  ] : null;
+
+  const ACT_COLOR = "var(--accent)";
+  const MCT_COLOR = "#10b981";
 
   return (
     <div className="dash-analysis-panel">
-      {/* Charts row */}
-      <div style={{ display: "flex", gap: "2rem", alignItems: "center", marginBottom: "1.5rem",
-        padding: "1.25rem", background: "var(--surface-hover)", borderRadius: "var(--radius)",
-        flexWrap: "wrap" }}>
-        <div style={{ flex: "0 0 auto" }}>
-          <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", color: "var(--muted)",
-            textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
-            Профиль анализа
-          </p>
-          <RadarChart values={radarValues} />
-        </div>
-        <div style={{ flex: 1, minWidth: "180px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-            {radarValues.map((v) => (
-              <div key={v.label}>
-                <div style={{ display: "flex", justifyContent: "space-between",
-                  fontSize: "0.8rem", marginBottom: "0.2rem" }}>
-                  <span style={{ color: "var(--muted)" }}>{v.label}</span>
-                  <span style={{ fontWeight: 600 }}>{v.value}/{v.max}</span>
-                </div>
-                <div style={{ height: "4px", background: "var(--border-subtle)", borderRadius: "2px" }}>
-                  <div style={{ height: "100%", borderRadius: "2px", background: "var(--accent)",
-                    width: `${(v.value / v.max) * 100}%`, transition: "width 0.5s ease" }} />
-                </div>
+      {/* Radars row */}
+      {(actValues || mctValues) && (
+        <div style={{ display: "grid", gridTemplateColumns: actValues && mctValues ? "1fr 1fr" : "1fr",
+          gap: "1.25rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+
+          {actValues && (
+            <div style={{ display: "flex", gap: "1.25rem", alignItems: "center",
+              padding: "1.25rem", background: "var(--surface-hover)", borderRadius: "var(--radius)",
+              flexWrap: "wrap" }}>
+              <div style={{ flex: "0 0 auto" }}>
+                <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "var(--muted)",
+                  textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+                  ACT Гексафлекс
+                </p>
+                <RadarChart values={actValues} />
               </div>
-            ))}
-          </div>
+              <div style={{ flex: 1, minWidth: "140px", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {actValues.map((v) => (
+                  <ScoreBar key={v.label} label={v.label} value={v.value} color={ACT_COLOR} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {mctValues && (
+            <div style={{ display: "flex", gap: "1.25rem", alignItems: "center",
+              padding: "1.25rem", background: "var(--surface-hover)", borderRadius: "var(--radius)",
+              flexWrap: "wrap" }}>
+              <div style={{ flex: "0 0 auto" }}>
+                <p style={{ margin: "0 0 0.5rem", fontSize: "0.7rem", color: "var(--muted)",
+                  textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "center" }}>
+                  МКТ-профиль
+                </p>
+                <RadarChart values={mctValues} />
+              </div>
+              <div style={{ flex: 1, minWidth: "140px", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {mctValues.map((v) => (
+                  <ScoreBar key={v.label} label={v.label} value={v.value} color={MCT_COLOR} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Risk meter (standalone row if no radars, else separate) */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
         <RiskMeter riskNotes={analysis.risk_notes} />
       </div>
 
