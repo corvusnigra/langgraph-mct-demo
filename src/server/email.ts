@@ -20,6 +20,7 @@ async function resendSend(payload: {
   });
   if (!res.ok) {
     const body = await res.text();
+    console.error(`[email] Resend API error: status=${res.status} body=${body}`);
     throw new Error(`[email] Resend error ${res.status}: ${body}`);
   }
 }

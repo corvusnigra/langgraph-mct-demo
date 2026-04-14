@@ -1,6 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { MCT_REFERENCE, type MctReferenceChunk } from "./mct-reference";
+import { semanticSearch } from "./embeddings/vector-store";
 
 const STOP_WORDS = new Set([
   "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
@@ -39,6 +40,14 @@ export const lookupMctReference = tool(
   async ({ query }: { query: string }) => {
     console.log(`[TOOL] lookup_mct_reference(query='${query.slice(0, 120)}...')`);
 
+    // Попытка семантического поиска
+    const semResults = await semanticSearch(query, { limit: 2, sourceType: "all" });
+    if (semResults && semResults.length > 0) {
+      console.log(`[TOOL] lookup_mct_reference → semantic mode, ${semResults.length} hits`);
+      return semResults.map((r) => `### Источник\n${r.content}`).join("\n\n---\n\n");
+    }
+
+    // fallback → keyword search
     const queryWords = new Set(
       query
         .toLowerCase()
@@ -80,6 +89,26 @@ export const lookupMctReference = tool(
       "Search the educational MCT reference (metacognitive model, ATT, worry/rumination, sleep, boundaries).",
     schema: z.object({
       query: z.string().describe("Search query describing the topic or situation"),
+    }),
+  }
+);
+
+export const searchKnowledgeBase = tool(
+  async ({ query, limit = 3 }: { query: string; limit?: number }) => {
+    console.log(`[TOOL] search_knowledge_base('${query.slice(0, 80)}')`);
+    const results = await semanticSearch(query, { limit, sourceType: "all" });
+    if (!results || results.length === 0) {
+      return "По запросу в базе знаний ничего не найдено.";
+    }
+    return results.map((r) => `### Источник\n${r.content}`).join("\n\n---\n\n");
+  },
+  {
+    name: "search_knowledge_base",
+    description:
+      "Semantic search across all knowledge base materials: books, articles, uploaded documents, MCT/ACT reference. Use for in-depth theoretical questions.",
+    schema: z.object({
+      query: z.string().describe("Search query in Russian or English"),
+      limit: z.number().int().min(1).max(5).optional().default(3),
     }),
   }
 );

@@ -23,14 +23,17 @@
     "@upstash/redis": "^1.37.0",
     "dotenv": "^16.4.7",
     "next": "^15.1.0",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.20.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
+    "voyageai": "^0.2.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

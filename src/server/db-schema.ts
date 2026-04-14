@@ -106,5 +106,37 @@ async function doSetup(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_client_analyses_client  ON mct_client_analyses(client_id);
   `);
 
+  // pgvector: создаём extension и таблицы знаний отдельно (extension может отсутствовать)
+  try {
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mct_knowledge_sources (
+        id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        title       TEXT        NOT NULL,
+        source_type TEXT        NOT NULL DEFAULT 'uploaded',
+        file_name   TEXT,
+        chunk_count INTEGER     NOT NULL DEFAULT 0,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS mct_knowledge_chunks (
+        id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+        source_id   UUID        REFERENCES mct_knowledge_sources(id) ON DELETE CASCADE,
+        content     TEXT        NOT NULL,
+        embedding   vector(1024),
+        metadata    JSONB       NOT NULL DEFAULT '{}',
+        chunk_index INTEGER     NOT NULL DEFAULT 0,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON mct_knowledge_chunks(source_id);
+    `);
+
+    console.log("[db-schema] pgvector таблицы знаний инициализированы");
+  } catch (err) {
+    console.warn("[db-schema] pgvector недоступен, база знаний будет работать in-memory:", err);
+  }
+
   console.log("[db-schema] схема MCT инициализирована");
 }

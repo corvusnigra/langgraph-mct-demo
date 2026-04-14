@@ -137,6 +137,9 @@ export default function TherapistPage() {
           ))}
         </nav>
         <div className="dash-nav__actions">
+          <a href="/admin/knowledge" className="mct-btn mct-btn--ghost mct-btn--sm">
+            База знаний
+          </a>
           <a href="/" className="mct-btn mct-btn--ghost mct-btn--sm">
             ← Чат
           </a>

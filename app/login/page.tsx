@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<State>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [devLink, setDevLink] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,12 +21,13 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      const data = (await res.json()) as { ok?: boolean; error?: string; devLink?: string };
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
         setErrorMsg(data.error ?? "Ошибка сервера");
         setState("error");
         return;
       }
+      if (data.devLink) setDevLink(data.devLink);
       setState("sent");
     } catch {
       setErrorMsg("Ошибка сети");
@@ -37,14 +39,30 @@ export default function LoginPage() {
     return (
       <div className="mct-app">
         <div className="mct-login-card">
-          <h1 className="mct-title">Письмо отправлено</h1>
-          <p>
-            Проверьте <strong>{email}</strong> и перейдите по ссылке для входа.
-          </p>
+          <h1 className="mct-title">
+            {devLink ? "Ссылка для входа" : "Письмо отправлено"}
+          </h1>
+          {devLink ? (
+            <>
+              <p>Почта не настроена — используйте ссылку напрямую:</p>
+              <a
+                href={devLink}
+                className="mct-btn mct-btn--primary"
+                style={{ display: "inline-block", marginTop: "0.5rem", wordBreak: "break-all" }}
+              >
+                Войти →
+              </a>
+            </>
+          ) : (
+            <p>
+              Проверьте <strong>{email}</strong> и перейдите по ссылке для входа.
+            </p>
+          )}
           <button
             type="button"
             className="mct-btn mct-btn--ghost"
-            onClick={() => setState("idle")}
+            style={{ marginTop: "1rem" }}
+            onClick={() => { setState("idle"); setDevLink(null); }}
           >
             Попробовать другой адрес
           </button>
