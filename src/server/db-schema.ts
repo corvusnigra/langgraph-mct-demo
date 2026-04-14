@@ -19,11 +19,13 @@ async function doSetup(): Promise<void> {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS mct_users (
-      id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-      email       TEXT        UNIQUE NOT NULL,
-      role        TEXT        NOT NULL DEFAULT 'client',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+      email         TEXT        UNIQUE NOT NULL,
+      role          TEXT        NOT NULL DEFAULT 'client',
+      password_hash TEXT,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    ALTER TABLE mct_users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
     CREATE TABLE IF NOT EXISTS mct_auth_tokens (
       id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

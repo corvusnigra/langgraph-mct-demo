@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 
-type State = "idle" | "loading" | "sent" | "error";
+type State = "idle" | "loading" | "error";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [state, setState] = useState<State>("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [devLink, setDevLink] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,72 +16,33 @@ export default function LoginPage() {
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/auth/request", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, password }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string; devLink?: string };
+      const data = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok) {
-        setErrorMsg(data.error ?? "Ошибка сервера");
+        setErrorMsg(data.error ?? "Ошибка входа");
         setState("error");
         return;
       }
-      if (data.devLink) setDevLink(data.devLink);
-      setState("sent");
+      window.location.href = "/";
     } catch {
       setErrorMsg("Ошибка сети");
       setState("error");
     }
   };
 
-  if (state === "sent") {
-    return (
-      <div className="mct-app">
-        <div className="mct-login-card">
-          <h1 className="mct-title">
-            {devLink ? "Ссылка для входа" : "Письмо отправлено"}
-          </h1>
-          {devLink ? (
-            <>
-              <p>Почта не настроена — используйте ссылку напрямую:</p>
-              <a
-                href={devLink}
-                className="mct-btn mct-btn--primary"
-                style={{ display: "inline-block", marginTop: "0.5rem", wordBreak: "break-all" }}
-              >
-                Войти →
-              </a>
-            </>
-          ) : (
-            <p>
-              Проверьте <strong>{email}</strong> и перейдите по ссылке для входа.
-            </p>
-          )}
-          <button
-            type="button"
-            className="mct-btn mct-btn--ghost"
-            style={{ marginTop: "1rem" }}
-            onClick={() => { setState("idle"); setDevLink(null); }}
-          >
-            Попробовать другой адрес
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="mct-app">
       <div className="mct-login-card">
         <p className="mct-kicker">Образовательный ассистент</p>
         <h1 className="mct-title">Консультант по темам МКТ</h1>
-        <p className="mct-lead">Введите email — мы отправим ссылку для входа.</p>
+        <p className="mct-lead">Введите email и пароль для входа.</p>
 
         <form onSubmit={handleSubmit} className="mct-login-form">
-          <label htmlFor="email" className="mct-login-label">
-            Email
-          </label>
+          <label htmlFor="email" className="mct-login-label">Email</label>
           <input
             id="email"
             type="email"
@@ -93,19 +54,38 @@ export default function LoginPage() {
             disabled={state === "loading"}
             className="mct-input"
           />
+
+          <label htmlFor="password" className="mct-login-label" style={{ marginTop: "0.75rem" }}>
+            Пароль
+          </label>
+          <input
+            id="password"
+            type="password"
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Минимум 6 символов"
+            disabled={state === "loading"}
+            className="mct-input"
+          />
+
           <button
             type="submit"
-            disabled={state === "loading" || !email.trim()}
+            disabled={state === "loading" || !email.trim() || !password.trim()}
             className="mct-btn mct-btn--primary"
+            style={{ marginTop: "1rem" }}
           >
-            {state === "loading" ? "Отправка…" : "Получить ссылку"}
+            {state === "loading" ? "Вход…" : "Войти"}
           </button>
         </form>
 
+        <p style={{ marginTop: "0.75rem", fontSize: "0.8rem", opacity: 0.5, textAlign: "center" }}>
+          Нет аккаунта — он создастся автоматически при первом входе.
+        </p>
+
         {state === "error" && (
-          <p className="mct-error" role="alert">
-            {errorMsg}
-          </p>
+          <p className="mct-error" role="alert">{errorMsg}</p>
         )}
       </div>
     </div>
