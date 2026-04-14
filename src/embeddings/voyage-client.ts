@@ -1,7 +1,7 @@
 import { VoyageAIClient } from "voyageai";
 
-const MODEL = process.env.VOYAGE_MODEL ?? "voyage-3-lite";
-export const DIMS = 1024; // voyage-3-lite dimensions
+const MODEL = process.env.VOYAGE_MODEL ?? "voyage-3";
+export const DIMS = 1024; // voyage-3 dimensions
 
 let _client: VoyageAIClient | null = null;
 

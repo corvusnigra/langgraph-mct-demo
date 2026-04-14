@@ -5,7 +5,7 @@
 import { getPgPool } from "../src/server/pg-pool";
 
 const VOYAGE_API_KEY = process.env.VOYAGE_API_KEY!;
-const VOYAGE_MODEL = process.env.VOYAGE_MODEL ?? "voyage-3-lite";
+const VOYAGE_MODEL = process.env.VOYAGE_MODEL ?? "voyage-3";
 const BATCH = 128;
 
 async function embedTexts(texts: string[]): Promise<number[][]> {
