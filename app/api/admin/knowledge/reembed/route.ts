@@ -25,16 +25,23 @@ export async function POST(req: NextRequest) {
   const pool = getPgPool();
   if (!pool) return NextResponse.json({ error: "Postgres не настроен" }, { status: 500 });
 
-  // Читаем все чанки без эмбеддингов
-  const { rows } = await pool.query<{ id: string; content: string }>(
-    `SELECT id::text, content FROM mct_knowledge_chunks WHERE embedding IS NULL ORDER BY chunk_index`
+  // Считаем сколько всего без эмбеддингов
+  const { rows: countRows } = await pool.query<{ cnt: string }>(
+    `SELECT COUNT(*)::text AS cnt FROM mct_knowledge_chunks WHERE embedding IS NULL`
   );
+  const totalNull = parseInt(countRows[0].cnt, 10);
 
-  if (rows.length === 0) {
-    return NextResponse.json({ ok: true, updated: 0, message: "Все чанки уже имеют эмбеддинги" });
+  if (totalNull === 0) {
+    return NextResponse.json({ ok: true, updated: 0, remaining: 0, message: "Все чанки уже имеют эмбеддинги" });
   }
 
-  // Батчами по 128 (лимит Voyage)
+  // Обрабатываем за один вызов не более 256 чанков (≈2 батча Voyage, укладывается в таймаут)
+  const LIMIT = 256;
+  const { rows } = await pool.query<{ id: string; content: string }>(
+    `SELECT id::text, content FROM mct_knowledge_chunks WHERE embedding IS NULL ORDER BY chunk_index LIMIT $1`,
+    [LIMIT]
+  );
+
   const BATCH = 128;
   let updated = 0;
 
@@ -62,5 +69,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, updated, total: rows.length });
+  const remaining = totalNull - updated;
+  return NextResponse.json({ ok: true, updated, remaining, total: totalNull });
 }

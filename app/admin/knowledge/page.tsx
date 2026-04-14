@@ -91,11 +91,18 @@ export default function KnowledgePage() {
   async function handleReembed() {
     setReembedding(true);
     setReembedResult(null);
+    let totalUpdated = 0;
     try {
-      const res = await fetch("/api/admin/knowledge/reembed", { method: "POST" });
-      const data = (await res.json()) as { ok?: boolean; updated?: number; total?: number; message?: string; error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Ошибка");
-      setReembedResult(data.message ?? `Обновлено ${data.updated} из ${data.total ?? data.updated} чанков`);
+      while (true) {
+        const res = await fetch("/api/admin/knowledge/reembed", { method: "POST" });
+        const data = (await res.json()) as { ok?: boolean; updated?: number; remaining?: number; total?: number; message?: string; error?: string };
+        if (!res.ok) throw new Error(data.error ?? "Ошибка");
+        if (data.message) { setReembedResult(data.message); break; }
+        totalUpdated += data.updated ?? 0;
+        const remaining = data.remaining ?? 0;
+        setReembedResult(`Проиндексировано: ${totalUpdated}${remaining > 0 ? `, осталось: ${remaining}…` : " ✓"}`);
+        if (remaining <= 0) break;
+      }
     } catch (e) {
       setReembedResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
