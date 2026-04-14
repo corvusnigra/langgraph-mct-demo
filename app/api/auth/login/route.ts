@@ -31,7 +31,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Пароль должен быть не менее 6 символов" }, { status: 400 });
   }
 
-  await setupDbSchema();
+  try {
+    await setupDbSchema();
+  } catch (err) {
+    console.error("[login] setupDbSchema failed:", err);
+    return NextResponse.json({ error: "Ошибка инициализации БД" }, { status: 500 });
+  }
   const pool = getPgPool();
   if (!pool) {
     return NextResponse.json({ error: "База данных недоступна" }, { status: 500 });

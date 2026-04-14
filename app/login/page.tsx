@@ -21,7 +21,14 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      let data: { ok?: boolean; error?: string } = {};
+      try {
+        data = (await res.json()) as { ok?: boolean; error?: string };
+      } catch {
+        setErrorMsg(`Ошибка сервера (${res.status})`);
+        setState("error");
+        return;
+      }
       if (!res.ok) {
         setErrorMsg(data.error ?? "Ошибка входа");
         setState("error");
@@ -29,7 +36,7 @@ export default function LoginPage() {
       }
       window.location.href = "/";
     } catch {
-      setErrorMsg("Ошибка сети");
+      setErrorMsg("Нет соединения с сервером");
       setState("error");
     }
   };
