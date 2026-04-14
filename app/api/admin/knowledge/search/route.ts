@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const pool = getPgPool();
   if (!pool) return NextResponse.json({ error: "Postgres не настроен" }, { status: 500 });
 
-  // Векторный поиск если Voyage доступен
+  // Векторный поиск если Voyage доступен и есть чанки с эмбеддингами
   if (isVoyageAvailable()) {
     const embeddings = await embedTexts([q], "query");
     if (embeddings) {
@@ -38,7 +38,10 @@ export async function GET(req: NextRequest) {
          LIMIT $2`,
         [vec, limit]
       );
-      return NextResponse.json({ results: rows, mode: "vector" });
+      if (rows.length > 0) {
+        return NextResponse.json({ results: rows, mode: "vector" });
+      }
+      // Эмбеддингов ещё нет (не переиндексировано) — падаем на full-text
     }
   }
 
@@ -57,5 +60,5 @@ export async function GET(req: NextRequest) {
      LIMIT $2`,
     [q, limit]
   );
-  return NextResponse.json({ results: rows, mode: "fulltext" });
+  return NextResponse.json({ results: rows, mode: rows.length > 0 ? "fulltext" : "none" });
 }
