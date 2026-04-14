@@ -77,6 +77,15 @@ export default function TherapistPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"analytics" | "homework" | "clients">("analytics");
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { user?: { role: string } } | null) => setUserRole(data?.user?.role ?? null))
+      .catch(() => null);
+  }, []);
+
   useEffect(() => {
     Promise.all([
       fetch("/api/therapist/clients").then((r) => r.json()),
@@ -137,9 +146,11 @@ export default function TherapistPage() {
           ))}
         </nav>
         <div className="dash-nav__actions">
-          <a href="/admin/knowledge" className="mct-btn mct-btn--ghost mct-btn--sm">
-            База знаний
-          </a>
+          {userRole === "admin" && (
+            <a href="/admin/knowledge" className="mct-btn mct-btn--ghost mct-btn--sm">
+              База знаний
+            </a>
+          )}
           <a href="/" className="mct-btn mct-btn--ghost mct-btn--sm">
             ← Чат
           </a>
