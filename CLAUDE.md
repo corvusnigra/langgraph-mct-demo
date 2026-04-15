@@ -8,22 +8,27 @@ Always respond to the user in Russian.
 
 ## About this project
 
-LangGraph MCT Consultant Demo — учебный проект-семинар «Memory & Guardrails in LLM-Powered Agents» на LangGraph JS + Claude API в домене образовательного консультанта по метакогнитивной терапии (МКТ). Не входит в монорепозиторий Konnektu.
+LangGraph MCT Consultant Demo — учебный проект-семинар «Memory & Guardrails in LLM-Powered Agents» на LangGraph JS + Claude API. Домен: образовательный консультант по метакогнитивной терапии (МКТ) и ACT (терапия принятия и ответственности). Не входит в монорепозиторий Konnektu.
 
 ## Commands
 
 ```bash
 pnpm install
-pnpm start          # CLI: прогон всех демо-сценариев (несколько вызовов LLM)
-pnpm dev            # Next.js веб-интерфейс на http://localhost:3040
-pnpm dev:3000       # Next.js на порту 3000 (если 3040 занят)
-pnpm build          # Production build (Next.js)
-pnpm typecheck      # tsc --noEmit для обоих tsconfig
-pnpm test           # Vitest (unit-тесты без LLM)
-pnpm test:watch     # Vitest в режиме watch
-```
+pnpm dev            # Next.js на http://localhost:3040
+pnpm dev:3000       # Next.js на порту 3000
+pnpm build          # Production build
+pnpm typecheck      # tsc --noEmit (оба tsconfig)
+pnpm test           # Vitest unit-тесты (без LLM)
+pnpm test:watch     # Vitest в watch-режиме
+pnpm start          # CLI: прогон всех демо-сценариев
 
-Интеграционный тест с реальным LLM: `MCT_REGRESSION=1 ANTHROPIC_API_KEY=... pnpm test`
+# Локальная инициализация базы знаний (без Vercel)
+npx tsx --tsconfig tsconfig.cli.json scripts/ingest-pdf.ts <file.pdf> "Название"
+npx tsx --tsconfig tsconfig.cli.json scripts/reembed.ts
+
+# Интеграционный тест с реальным LLM
+MCT_REGRESSION=1 ANTHROPIC_API_KEY=... pnpm test
+```
 
 ## Environment variables
 
@@ -32,57 +37,110 @@ pnpm test:watch     # Vitest в режиме watch
 | `ANTHROPIC_API_KEY` | Да | Ключ Anthropic |
 | `ANTHROPIC_MODEL` | Нет | Модель (по умолчанию `claude-sonnet-4-20250514`) |
 | `DATABASE_URL` | Нет | Postgres (или `POSTGRES_URL`, `NEON_DATABASE_URL`, `STORAGE_URL`) |
-| `MCT_EXTENDED_GRAPH` | Нет | `1` → расширенный граф (координатор + критик); по умолчанию классический |
+| `VOYAGE_API_KEY` | Нет | Voyage AI для векторных эмбеддингов базы знаний |
+| `VOYAGE_MODEL` | Нет | Voyage-модель (по умолчанию `voyage-3`, 1024 dim) |
+| `UPSTASH_REDIS_REST_URL` | Нет | Upstash Redis для rate limiting |
+| `UPSTASH_REDIS_REST_TOKEN` | Нет | Upstash Redis token |
+| `MCT_EXTENDED_GRAPH` | Нет | `1` → расширенный граф (координатор + критик) |
 
 Для CLI — `.env` в корне. Для Next.js — `.env.local`.
 
 ## Architecture
 
-### Два режима графа (`seminar-graphs.ts: buildFullGraph`)
+### TypeScript конфигурация
 
-`MCT_EXTENDED_GRAPH=1` выбирает расширенный граф, иначе — классический:
+Два tsconfig: `tsconfig.json` (Next.js, `src/` + `app/`) и `tsconfig.cli.json` (только `src/`, для CLI через `tsx`). При добавлении CLI-файлов следить за обоими.
 
-- **Классический** (`buildFullGraphClassic`): `input_guard → llmCall → toolNode → tool_output_guard → llmCall` — один агент со всеми tools, нет координатора и критика. Укладывается в Vercel serverless таймаут.
-- **Расширенный** (`buildFullGraphExtended`): добавляет `coordinator` (роутинг по веткам через structured output) и `critic` (циклическая правка черновика, до `MAX_CRITIC_REVISIONS=2` раз).
+### Auth и Middleware
 
-### Слои графа (семантически)
+`middleware.ts` — Edge-middleware, проверяет cookie `mct_session` (UUID v4) на всех маршрутах кроме `PUBLIC_PATHS`:
+```
+/login, /api/auth/login, /api/auth/logout, /api/auth/request, /api/auth/verify, /api/db-health
+```
 
-1. **`input_guard`** (`guards.ts`) — первый вызов: классификатор on-topic + маскировка PII. Блокирует офф-топик на первом сообщении.
-2. **`llmCall`** — ReAct-агент. В расширенном режиме получает branch-специфичный набор tools из `branching.ts`.
-3. **`toolNode`** — TAO: выполняет только первый `tool_call` (в простых графах — все). Логирует предупреждение при нескольких вызовах.
-4. **`tool_output_guard`** (`guards.ts: toolOutputGuard`) — удаляет упражнения с prompt-injection в поле `notes` (паттерн: `INJECTION_RE`).
-5. **`critic`** (только extended) — structured output `{verdict, feedback}`, при `revise` добавляет `SystemMessage` с замечаниями и возвращает на `llmCall`.
+Сессии хранятся в `mct_sessions` (Postgres) через `src/server/auth.ts`. `setupDbSchema()` вызывается лениво при первом запросе к `/api/auth/login` и создаёт все таблицы через `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (идемпотентно).
+
+### База данных (Postgres + pgvector)
+
+Таблицы создаются автоматически при первом логине (`src/server/db-schema.ts`):
+- `mct_users`, `mct_sessions`, `mct_auth_tokens` — auth
+- `mct_chat_sessions` — треды чата (поля: `user_id`, `thread_id`, `modality`, `started_at`, `ended_at`)
+- `mct_exercise_logs`, `mct_homework`, `mct_therapist_clients`, `mct_client_analyses` — данные терапевта
+- `mct_knowledge_sources`, `mct_knowledge_chunks` — база знаний (pgvector, `embedding vector(1024)`)
+
+`getPgPool()` (`src/server/pg-pool.ts`) — singleton пула, возвращает `undefined` если нет DATABASE_URL.
+
+### Thread ID и история чата
+
+Thread ID хранится в БД (`mct_chat_sessions`), а не только в localStorage:
+- `GET /api/chat/thread?modality=mct|act` → последний thread_id пользователя (или создаёт новый)
+- `POST /api/chat/thread { modality }` → создаёт новый тред
+- `src/server/session-db.ts`: `getOrCreateThread()`, `createNewThread()`, `createChatSession()`
+
+### LangGraph граф (`seminar-graphs.ts: buildFullGraph`)
+
+`MCT_EXTENDED_GRAPH=1` — расширенный граф, иначе классический:
+
+- **Классический**: `input_guard → llmCall → toolNode → tool_output_guard → llmCall` — один агент, все tools. Укладывается в Vercel Hobby (10с таймаут).
+- **Расширенный**: добавляет `coordinator` (structured output роутинг по веткам) и `critic` (до `MAX_CRITIC_REVISIONS=2` итераций правки).
+
+Узлы графа:
+1. `input_guard` (`guards.ts`) — классификатор on-topic + маскировка PII
+2. `llmCall` — ReAct-агент с системным промптом из `src/prompts.ts`
+3. `toolNode` — выполняет первый `tool_call` (TAO-паттерн)
+4. `tool_output_guard` — удаляет упражнения с prompt-injection (паттерн `INJECTION_RE`)
+5. `critic` (extended only) — structured output `{verdict, feedback}`
 
 ### Tools
 
 | Tool | Файл | Описание |
 |---|---|---|
 | `search_exercises_or_resources` | `tools.ts` | Поиск упражнений из каталога `data.ts` |
-| `update_client_profile` | `tools.ts` | Обновление `data/client_profile.json` |
-| `lookup_mct_reference` | `rag-tools.ts` | Keyword RAG по справочнику МКТ (`mct-reference.ts`) |
-| `propose_homework_plan` | `homework-interrupt-tool.ts` | Предлагает план ДЗ + `interrupt` (human-in-the-loop) |
+| `update_client_profile` | `tools.ts` | Обновление профиля клиента в Postgres |
+| `lookup_mct_reference` | `rag-tools.ts` | RAG по справочнику МКТ + pgvector поиск по загруженным книгам |
+| `propose_homework_plan` | `homework-interrupt-tool.ts` | Предлагает план ДЗ + `interrupt` |
 
-### Checkpointer (`server/checkpointer.ts`)
+`lookup_mct_reference` использует два источника: встроенный справочник `mct-reference.ts` (keyword) и pgvector (семантический поиск по загруженным PDF).
 
-Singleton: при наличии DB URL — `PostgresSaver` (с `setup()` при первом вызове), иначе `MemorySaver`. На Vercel без Postgres interrupt/resume теряется между инстансами.
+### Checkpointer (`src/server/checkpointer.ts`)
 
-### Next.js API
+Singleton: при наличии DATABASE_URL — `PostgresSaver` (с `setup()` при первом вызове), иначе `MemorySaver`. На Vercel без Postgres interrupt/resume теряется между инстансами.
 
-- `POST /api/chat` `{ threadId, message }` → `{ reply, interrupted, interruptPayload }`
-- `POST /api/resume` `{ threadId, resume }` → продолжение после interrupt
-- `GET /api/db-health` → проверка Postgres без ключа Anthropic
+### База знаний (Knowledge Base)
 
-`getFullGraph()` (`server/full-graph.ts`) — singleton скомпилированного графа на процесс.
+- Загрузка через `/api/admin/knowledge/upload` (PDF, TXT, MD) → chunking (`src/embeddings/chunker.ts`) → INSERT в `mct_knowledge_chunks` (embedding = NULL)
+- Эмбеддинги через `POST /api/admin/knowledge/reembed` — батчи по 10 чанков, Voyage AI `voyage-3` (1024 dim). На Vercel Hobby добавлена задержка 21с между вызовами (лимит 3 RPM free plan).
+- Поиск: `GET /api/admin/knowledge/search?q=...` — сначала vector (cosine similarity), fallback на pg full-text (`to_tsvector('russian', ...)`)
 
-### Структура графов по шагам семинара
+### Next.js API routes
 
-| Шаг | Функция | Где |
-|---|---|---|
-| 0–1 | `buildGraphBasic`, `buildGraphWithMemory`, `buildGraphWithProfile` | `graph.ts` |
-| 2 | `buildGraphRag`, `buildGraphHyde` | `seminar-graphs.ts` |
-| 3 | `buildGuardedGraph` | `seminar-graphs.ts` |
-| 4 | `buildFullGraph` (classic/extended) | `seminar-graphs.ts` |
+```
+POST /api/chat          { threadId, message, modality }  → { reply, interrupted, interruptPayload }
+POST /api/resume        { threadId, resume }              → { reply }
+GET  /api/chat/thread   ?modality=mct|act                → { threadId }
+POST /api/chat/thread   { modality }                      → { threadId }
+GET  /api/history       ?threadId=...                     → { messages }
+GET  /api/db-health                                       → { ok, postgres, voyage }
+POST /api/auth/login    { email, password }               → set-cookie mct_session
+POST /api/auth/logout                                     → clear cookie
+GET  /api/auth/me                                         → { user }
+POST /api/admin/knowledge/upload                          → { ok, chunks }
+POST /api/admin/knowledge/reembed                         → { ok, updated, remaining }
+GET  /api/admin/knowledge/search  ?q=...&limit=8          → { results, mode }
+```
 
-### TypeScript конфигурация
+Все `/api/admin/*` и `/api/therapist/*` требуют роль `admin` или `therapist` соответственно.
 
-Два tsconfig: `tsconfig.json` (Next.js, `src/` + `app/`) и `tsconfig.cli.json` (только `src/`, для `pnpm start` через `tsx`). При добавлении CLI-файлов нужно следить за обоими.
+### Уведомления
+
+`app/components/notifications.tsx` — `NotificationsProvider` обёрнут в `app/layout.tsx`. Хук `useNotify()` возвращает `notify({ type, message, action?, duration? })`. `duration: 0` = sticky toast.
+
+### Системные промпты и probe-вопросы (`src/prompts.ts`)
+
+`SYSTEM_PROMPT_V4` (MCT) и `SYSTEM_PROMPT_ACT_V4` содержат `MCT_PROBE_QUESTIONS` и `ACT_PROBE_QUESTIONS` — по 2 примера вопросов на каждую из 6 осей ACT Hexaflex и 6 осей MCT Profile. Правило: один зондирующий вопрос за ход, не повторять.
+
+### Vercel-специфика
+
+- Hobby plan: хардкод 10с на serverless function. `maxDuration=60` игнорируется.
+- `VERCEL` env → `profile-store.ts` пишет в `/tmp` вместо `data/`.
+- Voyage AI блокирует российские IP (403) → reembed только через Vercel deployment.
