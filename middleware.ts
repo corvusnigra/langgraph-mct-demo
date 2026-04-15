@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE = "mct_session";
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/request", "/api/auth/verify", "/api/auth/logout"];
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/request", "/api/auth/verify", "/api/auth/logout", "/api/db-health"];
 
 /** UUID v4 regex — минимальная проверка формата токена на Edge без обращения к БД. */
 const UUID_RE =

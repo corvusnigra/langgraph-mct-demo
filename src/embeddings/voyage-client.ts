@@ -23,7 +23,11 @@ export async function embedTexts(
   for (let i = 0; i < texts.length; i += 128) {
     const batch = texts.slice(i, i + 128);
     const res = await client.embed({ input: batch, model: MODEL, inputType });
-    batches.push(res.data!.map((d) => d.embedding!));
+    if (!res.data?.length) throw new Error("Voyage API вернул пустой data");
+    batches.push(res.data.map((d) => {
+      if (!d.embedding) throw new Error("Voyage API: embedding is null");
+      return d.embedding;
+    }));
   }
   return batches.flat();
 }

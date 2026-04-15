@@ -292,12 +292,8 @@ export default function ChatPage() {
                 className="mct-btn mct-btn--ghost mct-btn--sm"
                 onClick={async () => {
                   await fetch("/api/auth/logout", { method: "POST" });
-                  // Очищаем threadId текущего пользователя из localStorage
-                  if (userIdRef.current) {
-                    ["mct", "act"].forEach((mod) =>
-                      localStorage.removeItem(`mct_thread_${userIdRef.current}_${mod}`)
-                    );
-                  }
+                  // threadId не удаляем — ключи namespaced по userId,
+                  // история восстановится при следующем входе
                   window.location.href = "/login";
                 }}
               >

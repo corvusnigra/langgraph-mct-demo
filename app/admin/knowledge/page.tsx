@@ -92,8 +92,12 @@ export default function KnowledgePage() {
     setReembedding(true);
     setReembedResult(null);
     let totalUpdated = 0;
+    let cancelled = false;
+    const cancel = () => { cancelled = true; };
+    // Сохраняем cancel в ref чтобы можно было вызвать при размонтировании
+    (handleReembed as unknown as { cancel?: () => void }).cancel = cancel;
     try {
-      while (true) {
+      while (!cancelled) {
         const res = await fetch("/api/admin/knowledge/reembed", { method: "POST" });
         const data = (await res.json()) as { ok?: boolean; updated?: number; remaining?: number; total?: number; message?: string; error?: string };
         if (!res.ok) throw new Error(data.error ?? "Ошибка");
@@ -106,7 +110,7 @@ export default function KnowledgePage() {
         await new Promise((r) => setTimeout(r, 21000));
       }
     } catch (e) {
-      setReembedResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+      if (!cancelled) setReembedResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setReembedding(false);
     }

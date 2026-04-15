@@ -42,37 +42,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "База данных недоступна" }, { status: 500 });
   }
 
-  // Ищем пользователя
-  const { rows } = await pool.query<{ id: string; password_hash: string | null; role: string }>(
-    `SELECT id, password_hash, role FROM mct_users WHERE email = $1`,
-    [email]
-  );
-
   let userId: string;
 
-  if (rows.length === 0) {
-    // Новый пользователь — регистрируем
-    const hash = await hashPassword(password);
-    const { rows: newUser } = await pool.query<{ id: string }>(
-      `INSERT INTO mct_users (email, password_hash) VALUES ($1, $2) RETURNING id`,
-      [email, hash]
+  try {
+    // Ищем пользователя
+    const { rows } = await pool.query<{ id: string; password_hash: string | null; role: string }>(
+      `SELECT id, password_hash, role FROM mct_users WHERE email = $1`,
+      [email]
     );
-    userId = newUser[0].id;
-  } else {
-    const user = rows[0];
-    if (!user.password_hash) {
-      // Существующий пользователь без пароля (magic link) — устанавливаем пароль
+
+    if (rows.length === 0) {
+      // Новый пользователь — регистрируем
       const hash = await hashPassword(password);
-      await pool.query(`UPDATE mct_users SET password_hash = $1 WHERE id = $2`, [hash, user.id]);
-      userId = user.id;
+      const { rows: newUser } = await pool.query<{ id: string }>(
+        `INSERT INTO mct_users (email, password_hash) VALUES ($1, $2) RETURNING id`,
+        [email, hash]
+      );
+      userId = newUser[0].id;
     } else {
-      // Проверяем пароль
-      const ok = await verifyPassword(password, user.password_hash);
-      if (!ok) {
-        return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
+      const user = rows[0];
+      if (!user.password_hash) {
+        // Существующий пользователь без пароля (magic link) — устанавливаем пароль
+        const hash = await hashPassword(password);
+        await pool.query(`UPDATE mct_users SET password_hash = $1 WHERE id = $2`, [hash, user.id]);
+        userId = user.id;
+      } else {
+        // Проверяем пароль
+        const ok = await verifyPassword(password, user.password_hash);
+        if (!ok) {
+          return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
+        }
+        userId = user.id;
       }
-      userId = user.id;
     }
+  } catch (err) {
+    console.error("[login] DB error:", err);
+    return NextResponse.json({ error: "Ошибка базы данных" }, { status: 500 });
   }
 
   const sessionToken = await createSession(userId);
