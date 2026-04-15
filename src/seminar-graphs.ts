@@ -48,6 +48,9 @@ import {
 import {
   buildToolsByName,
   createChatModel,
+  createGuardModel,
+  createCoordinatorModel,
+  createCriticModel,
   lastAiText,
   lastAiTextFinal,
   threadConfig,
@@ -199,7 +202,7 @@ export function buildGuardedGraph() {
   const checkpointer = new MemorySaver();
   const tools = [searchExercisesOrResources, lookupMctReference, updateClientProfile];
   const model = createChatModel();
-  const classifier = createChatModel();
+  const classifier = createGuardModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
     async () => buildSystemPrompt(SYSTEM_PROMPT_V3),
     tools,
@@ -246,7 +249,7 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
     proposeHomeworkPlan,
   ];
   const model = createChatModel();
-  const classifier = createChatModel();
+  const classifier = createGuardModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
     async () => buildSystemPrompt(getFullGraphBasePrompt()),
     tools,
@@ -276,11 +279,11 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
 function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
   const cp = checkpointer ?? new MemorySaver();
   const model = createChatModel();
-  const classifier = createChatModel();
-  const coordinatorModel = createChatModel().withStructuredOutput(
+  const classifier = createGuardModel();
+  const coordinatorModel = createCoordinatorModel().withStructuredOutput(
     coordinatorRoutingSchema
   );
-  const criticModel = createChatModel().withStructuredOutput(criticVerdictSchema);
+  const criticModel = createCriticModel().withStructuredOutput(criticVerdictSchema);
 
   const getBaseSystem = () => buildSystemPrompt(getFullGraphBasePrompt());
 

@@ -6,9 +6,29 @@ import type { StructuredToolInterface } from "@langchain/core/tools";
 import { END } from "@langchain/langgraph";
 
 export const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+/** Лёгкая модель для классификации и роутинга (guard, coordinator) */
+const DEFAULT_FAST_MODEL = "claude-haiku-4-5-20251001";
 
 export function createChatModel(): ChatAnthropic {
   const modelName = process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
+  return new ChatAnthropic({ model: modelName, temperature: 0 });
+}
+
+/** Guard / классификатор on-topic — быстрая дешёвая модель */
+export function createGuardModel(): ChatAnthropic {
+  const modelName = process.env.GUARD_MODEL ?? DEFAULT_FAST_MODEL;
+  return new ChatAnthropic({ model: modelName, temperature: 0 });
+}
+
+/** Coordinator structured-output роутинг — быстрая дешёвая модель */
+export function createCoordinatorModel(): ChatAnthropic {
+  const modelName = process.env.COORDINATOR_MODEL ?? DEFAULT_FAST_MODEL;
+  return new ChatAnthropic({ model: modelName, temperature: 0 });
+}
+
+/** Critic — оценка качества ответа, нужна хорошая модель */
+export function createCriticModel(): ChatAnthropic {
+  const modelName = process.env.CRITIC_MODEL ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;
   return new ChatAnthropic({ model: modelName, temperature: 0 });
 }
 
