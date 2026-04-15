@@ -254,7 +254,8 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver, mainModel?: A
     proposeHomeworkPlan,
   ];
   const model = mainModel ?? createChatModel();
-  const classifier = createGuardModel();
+  // Если задана кастомная модель — guard тоже использует её (иначе guard вызовет Anthropic)
+  const classifier = mainModel ?? createGuardModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
     async () => buildSystemPrompt(getFullGraphBasePrompt()),
     tools,
@@ -284,7 +285,7 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver, mainModel?: A
 function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver, mainModel?: AnyModel) {
   const cp = checkpointer ?? new MemorySaver();
   const model = mainModel ?? createChatModel();
-  const classifier = createGuardModel();
+  const classifier = mainModel ?? createGuardModel();
   const coordinatorModel = createCoordinatorModel().withStructuredOutput(
     coordinatorRoutingSchema
   );
