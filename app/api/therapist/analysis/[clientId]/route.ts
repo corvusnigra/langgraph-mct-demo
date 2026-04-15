@@ -6,7 +6,7 @@ import { getClientThreadIds } from "@/src/server/session-db";
 import { getPgPool } from "@/src/server/pg-pool";
 import { getFullGraph } from "@/src/server/full-graph";
 import { lastAiText } from "@/src/seminar-graphs";
-import { createChatModel } from "@/src/shared";
+import { createChatModel, createModelById } from "@/src/shared";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -163,7 +163,13 @@ export async function POST(
     return NextResponse.json({ error: "Нет данных сессий для анализа" }, { status: 404 });
   }
 
-  const model = createChatModel();
+  let modelId: string | undefined;
+  try {
+    const body = (await req.json()) as { model?: string };
+    modelId = body.model;
+  } catch { /* body может быть пустым */ }
+
+  const model = modelId ? createModelById(modelId) : createChatModel();
   const response = await model.invoke([
     new SystemMessage(ANALYSIS_SYSTEM),
     new HumanMessage(`Проанализируй следующую переписку клиента:\n\n${transcript.slice(0, 24_000)}`),

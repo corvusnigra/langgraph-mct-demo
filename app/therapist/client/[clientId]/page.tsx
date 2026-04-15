@@ -417,6 +417,21 @@ export default function ClientPage() {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<{ id: string; label: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/models")
+      .then((r) => r.ok ? r.json() as Promise<{ models: { id: string; label: string }[] }> : null)
+      .then((d) => {
+        if (!d?.models?.length) return;
+        setAvailableModels(d.models);
+        const saved = localStorage.getItem("mct_analysis_model") ?? "";
+        const found = d.models.find((m) => m.id === saved);
+        setSelectedModel(found ? found.id : d.models[0].id);
+      })
+      .catch(() => null);
+  }, []);
 
   useEffect(() => {
     // Параллельная загрузка клиента и его последнего сохранённого аналитика
@@ -442,7 +457,11 @@ export default function ClientPage() {
     setAnalysisLoading(true);
     setAnalysisError(null);
     try {
-      const res = await fetch(`/api/therapist/analysis/${clientId}`, { method: "POST" });
+      const res = await fetch(`/api/therapist/analysis/${clientId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: selectedModel || undefined }),
+      });
       const data = (await res.json()) as { analysis?: Analysis; created_at?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Ошибка");
       setAnalysis(data.analysis!);
@@ -644,19 +663,40 @@ export default function ClientPage() {
                       </span>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    className="dash-analysis-btn"
-                    disabled={analysisLoading}
-                    onClick={loadAnalysis}
-                    style={{ fontSize: "0.9rem", padding: "0.5rem 1.25rem" }}
-                  >
-                    {analysisLoading
-                      ? "Генерирую анализ…"
-                      : analysis
-                      ? "Обновить анализ"
-                      : "Сгенерировать анализ"}
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {availableModels.length > 1 && (
+                      <div className="chat-model-selector" role="group" aria-label="Модель анализа">
+                        {availableModels.map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={`chat-model-btn${selectedModel === m.id ? " chat-model-btn--active" : ""}`}
+                            onClick={() => {
+                              setSelectedModel(m.id);
+                              localStorage.setItem("mct_analysis_model", m.id);
+                            }}
+                            disabled={analysisLoading}
+                            title={m.id}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="dash-analysis-btn"
+                      disabled={analysisLoading}
+                      onClick={loadAnalysis}
+                      style={{ fontSize: "0.9rem", padding: "0.5rem 1.25rem" }}
+                    >
+                      {analysisLoading
+                        ? "Генерирую анализ…"
+                        : analysis
+                        ? "Обновить анализ"
+                        : "Сгенерировать анализ"}
+                    </button>
+                  </div>
                 </div>
                 {analysisError && (
                   <div className="dash-error" role="alert">{analysisError}</div>
