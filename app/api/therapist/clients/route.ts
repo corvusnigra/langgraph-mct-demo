@@ -12,6 +12,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
   }
 
-  const clients = await getTherapistClients(user.id);
+  const clients = await getTherapistClients(user.id, user.role === "admin");
   return NextResponse.json({ clients });
 }

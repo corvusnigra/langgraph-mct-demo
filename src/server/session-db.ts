@@ -326,7 +326,8 @@ export async function getClientThreadIds(userId: string): Promise<string[]> {
 }
 
 export async function getTherapistAnalytics(
-  therapistId: string
+  therapistId: string,
+  isAdmin = false
 ): Promise<TherapistAnalytics> {
   const pool = getPgPool();
   if (!pool) {
@@ -334,64 +335,120 @@ export async function getTherapistAnalytics(
   }
 
   const [clientsRes, exercisesRes, recentRes, weekRes] = await Promise.all([
-    pool.query<ClientAnalytics>(
-      `SELECT
-        u.id,
-        u.email,
-        COUNT(DISTINCT s.id)::int                                          AS total_sessions,
-        AVG(EXTRACT(EPOCH FROM (s.ended_at - s.started_at)) / 60)         AS avg_duration_min,
-        MAX(s.started_at)                                                  AS last_session,
-        COUNT(DISTINCT el.exercise_id)::int                                AS unique_exercises,
-        COUNT(DISTINCT hw.id)::int                                         AS homework_total,
-        COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'approved')::int  AS homework_approved
-       FROM mct_therapist_clients tc
-       JOIN mct_users u ON u.id = tc.client_id
-       LEFT JOIN mct_chat_sessions s  ON s.user_id  = u.id
-       LEFT JOIN mct_exercise_logs el ON el.user_id  = u.id
-       LEFT JOIN mct_homework hw      ON hw.user_id  = u.id
-       WHERE tc.therapist_id = $1
-       GROUP BY u.id, u.email
-       ORDER BY last_session DESC NULLS LAST`,
-      [therapistId]
-    ),
-    pool.query<ExerciseStat>(
-      `SELECT el.exercise_id, COUNT(*)::int AS views
-       FROM mct_exercise_logs el
-       JOIN mct_therapist_clients tc ON tc.client_id = el.user_id
-       WHERE tc.therapist_id = $1
-       GROUP BY el.exercise_id
-       ORDER BY views DESC
-       LIMIT 10`,
-      [therapistId]
-    ),
-    pool.query<RecentSession>(
-      `SELECT
-        s.id          AS session_id,
-        u.email       AS client_email,
-        s.started_at,
-        s.ended_at,
-        COALESCE(
-          ARRAY_AGG(DISTINCT el.exercise_id) FILTER (WHERE el.exercise_id IS NOT NULL),
-          '{}'
-        )             AS exercises
-       FROM mct_chat_sessions s
-       JOIN mct_users u ON u.id = s.user_id
-       JOIN mct_therapist_clients tc ON tc.client_id = s.user_id
-       LEFT JOIN mct_exercise_logs el ON el.session_id = s.id
-       WHERE tc.therapist_id = $1
-       GROUP BY s.id, u.email
-       ORDER BY s.started_at DESC
-       LIMIT 20`,
-      [therapistId]
-    ),
-    pool.query<{ cnt: number }>(
-      `SELECT COUNT(DISTINCT s.id)::int AS cnt
-       FROM mct_chat_sessions s
-       JOIN mct_therapist_clients tc ON tc.client_id = s.user_id
-       WHERE tc.therapist_id = $1
-         AND s.started_at >= now() - interval '7 days'`,
-      [therapistId]
-    ),
+    isAdmin
+      ? pool.query<ClientAnalytics>(
+          `SELECT
+            u.id,
+            u.email,
+            COUNT(DISTINCT s.id)::int                                          AS total_sessions,
+            AVG(EXTRACT(EPOCH FROM (s.ended_at - s.started_at)) / 60)         AS avg_duration_min,
+            MAX(s.started_at)                                                  AS last_session,
+            COUNT(DISTINCT el.exercise_id)::int                                AS unique_exercises,
+            COUNT(DISTINCT hw.id)::int                                         AS homework_total,
+            COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'approved')::int  AS homework_approved
+           FROM mct_users u
+           LEFT JOIN mct_chat_sessions s  ON s.user_id  = u.id
+           LEFT JOIN mct_exercise_logs el ON el.user_id  = u.id
+           LEFT JOIN mct_homework hw      ON hw.user_id  = u.id
+           WHERE u.role NOT IN ('therapist', 'admin')
+           GROUP BY u.id, u.email
+           ORDER BY last_session DESC NULLS LAST`
+        )
+      : pool.query<ClientAnalytics>(
+          `SELECT
+            u.id,
+            u.email,
+            COUNT(DISTINCT s.id)::int                                          AS total_sessions,
+            AVG(EXTRACT(EPOCH FROM (s.ended_at - s.started_at)) / 60)         AS avg_duration_min,
+            MAX(s.started_at)                                                  AS last_session,
+            COUNT(DISTINCT el.exercise_id)::int                                AS unique_exercises,
+            COUNT(DISTINCT hw.id)::int                                         AS homework_total,
+            COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'approved')::int  AS homework_approved
+           FROM mct_therapist_clients tc
+           JOIN mct_users u ON u.id = tc.client_id
+           LEFT JOIN mct_chat_sessions s  ON s.user_id  = u.id
+           LEFT JOIN mct_exercise_logs el ON el.user_id  = u.id
+           LEFT JOIN mct_homework hw      ON hw.user_id  = u.id
+           WHERE tc.therapist_id = $1
+           GROUP BY u.id, u.email
+           ORDER BY last_session DESC NULLS LAST`,
+          [therapistId]
+        ),
+    isAdmin
+      ? pool.query<ExerciseStat>(
+          `SELECT el.exercise_id, COUNT(*)::int AS views
+           FROM mct_exercise_logs el
+           JOIN mct_users u ON u.id = el.user_id
+           WHERE u.role NOT IN ('therapist', 'admin')
+           GROUP BY el.exercise_id
+           ORDER BY views DESC
+           LIMIT 10`
+        )
+      : pool.query<ExerciseStat>(
+          `SELECT el.exercise_id, COUNT(*)::int AS views
+           FROM mct_exercise_logs el
+           JOIN mct_therapist_clients tc ON tc.client_id = el.user_id
+           WHERE tc.therapist_id = $1
+           GROUP BY el.exercise_id
+           ORDER BY views DESC
+           LIMIT 10`,
+          [therapistId]
+        ),
+    isAdmin
+      ? pool.query<RecentSession>(
+          `SELECT
+            s.id          AS session_id,
+            u.email       AS client_email,
+            s.started_at,
+            s.ended_at,
+            COALESCE(
+              ARRAY_AGG(DISTINCT el.exercise_id) FILTER (WHERE el.exercise_id IS NOT NULL),
+              '{}'
+            )             AS exercises
+           FROM mct_chat_sessions s
+           JOIN mct_users u ON u.id = s.user_id
+           LEFT JOIN mct_exercise_logs el ON el.session_id = s.id
+           WHERE u.role NOT IN ('therapist', 'admin')
+           GROUP BY s.id, u.email
+           ORDER BY s.started_at DESC
+           LIMIT 20`
+        )
+      : pool.query<RecentSession>(
+          `SELECT
+            s.id          AS session_id,
+            u.email       AS client_email,
+            s.started_at,
+            s.ended_at,
+            COALESCE(
+              ARRAY_AGG(DISTINCT el.exercise_id) FILTER (WHERE el.exercise_id IS NOT NULL),
+              '{}'
+            )             AS exercises
+           FROM mct_chat_sessions s
+           JOIN mct_users u ON u.id = s.user_id
+           JOIN mct_therapist_clients tc ON tc.client_id = s.user_id
+           LEFT JOIN mct_exercise_logs el ON el.session_id = s.id
+           WHERE tc.therapist_id = $1
+           GROUP BY s.id, u.email
+           ORDER BY s.started_at DESC
+           LIMIT 20`,
+          [therapistId]
+        ),
+    isAdmin
+      ? pool.query<{ cnt: number }>(
+          `SELECT COUNT(DISTINCT s.id)::int AS cnt
+           FROM mct_chat_sessions s
+           JOIN mct_users u ON u.id = s.user_id
+           WHERE u.role NOT IN ('therapist', 'admin')
+             AND s.started_at >= now() - interval '7 days'`
+        )
+      : pool.query<{ cnt: number }>(
+          `SELECT COUNT(DISTINCT s.id)::int AS cnt
+           FROM mct_chat_sessions s
+           JOIN mct_therapist_clients tc ON tc.client_id = s.user_id
+           WHERE tc.therapist_id = $1
+             AND s.started_at >= now() - interval '7 days'`,
+          [therapistId]
+        ),
   ]);
 
   return {
@@ -402,23 +459,36 @@ export async function getTherapistAnalytics(
   };
 }
 
-export async function getTherapistClients(therapistId: string): Promise<
-  Array<{ id: string; email: string; sessions_count: number; pending_hw: number }>
-> {
+export async function getTherapistClients(
+  therapistId: string,
+  isAdmin = false
+): Promise<Array<{ id: string; email: string; sessions_count: number; pending_hw: number }>> {
   const pool = getPgPool();
   if (!pool) return [];
-  const { rows } = await pool.query(
-    `SELECT u.id, u.email,
-            COUNT(DISTINCT s.id)::int AS sessions_count,
-            COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'pending')::int AS pending_hw
-     FROM mct_therapist_clients tc
-     JOIN mct_users u ON u.id = tc.client_id
-     LEFT JOIN mct_chat_sessions s ON s.user_id = u.id
-     LEFT JOIN mct_homework hw ON hw.user_id = u.id
-     WHERE tc.therapist_id = $1
-     GROUP BY u.id, u.email
-     ORDER BY u.email`,
-    [therapistId]
-  );
+  const { rows } = isAdmin
+    ? await pool.query(
+        `SELECT u.id, u.email,
+                COUNT(DISTINCT s.id)::int AS sessions_count,
+                COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'pending')::int AS pending_hw
+         FROM mct_users u
+         LEFT JOIN mct_chat_sessions s ON s.user_id = u.id
+         LEFT JOIN mct_homework hw ON hw.user_id = u.id
+         WHERE u.role NOT IN ('therapist', 'admin')
+         GROUP BY u.id, u.email
+         ORDER BY u.email`
+      )
+    : await pool.query(
+        `SELECT u.id, u.email,
+                COUNT(DISTINCT s.id)::int AS sessions_count,
+                COUNT(DISTINCT hw.id) FILTER (WHERE hw.status = 'pending')::int AS pending_hw
+         FROM mct_therapist_clients tc
+         JOIN mct_users u ON u.id = tc.client_id
+         LEFT JOIN mct_chat_sessions s ON s.user_id = u.id
+         LEFT JOIN mct_homework hw ON hw.user_id = u.id
+         WHERE tc.therapist_id = $1
+         GROUP BY u.id, u.email
+         ORDER BY u.email`,
+        [therapistId]
+      );
   return rows;
 }
