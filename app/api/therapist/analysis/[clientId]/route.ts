@@ -122,9 +122,11 @@ export async function GET(
   }
 
   const { clientId } = await params;
-  const allowed = await isClientOfTherapist(user.id, clientId);
-  if (!allowed) {
-    return NextResponse.json({ error: "Клиент не прикреплён" }, { status: 403 });
+  if (user.role !== "admin") {
+    const allowed = await isClientOfTherapist(user.id, clientId);
+    if (!allowed) {
+      return NextResponse.json({ error: "Клиент не прикреплён" }, { status: 403 });
+    }
   }
 
   const pool = getPgPool();
@@ -153,14 +155,12 @@ export async function POST(
 
   const { clientId } = await params;
 
-  const allowed = await isClientOfTherapist(user.id, clientId);
-  if (!allowed) {
-    return NextResponse.json({ error: "Клиент не прикреплён" }, { status: 403 });
-  }
-
-  const transcript = await buildTranscript(clientId);
-  if (!transcript) {
-    return NextResponse.json({ error: "Нет данных сессий для анализа" }, { status: 404 });
+  // Admin видит всех клиентов без привязки; therapist — только своих
+  if (user.role !== "admin") {
+    const allowed = await isClientOfTherapist(user.id, clientId);
+    if (!allowed) {
+      return NextResponse.json({ error: "Клиент не прикреплён" }, { status: 403 });
+    }
   }
 
   let modelId: string | undefined;
@@ -169,11 +169,23 @@ export async function POST(
     modelId = body.model;
   } catch { /* body может быть пустым */ }
 
+  const transcript = await buildTranscript(clientId);
+  if (!transcript) {
+    return NextResponse.json({ error: "Нет данных сессий для анализа" }, { status: 404 });
+  }
+
   const model = modelId ? createModelById(modelId) : createChatModel();
-  const response = await model.invoke([
-    new SystemMessage(ANALYSIS_SYSTEM),
-    new HumanMessage(`Проанализируй следующую переписку клиента:\n\n${transcript.slice(0, 24_000)}`),
-  ]);
+  let response;
+  try {
+    response = await model.invoke([
+      new SystemMessage(ANALYSIS_SYSTEM),
+      new HumanMessage(`Проанализируй следующую переписку клиента:\n\n${transcript.slice(0, 24_000)}`),
+    ]);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[analysis] model.invoke failed:", msg);
+    return NextResponse.json({ error: `Ошибка модели: ${msg}` }, { status: 500 });
+  }
 
   const raw = typeof response.content === "string" ? response.content : "";
   let analysis: unknown;
