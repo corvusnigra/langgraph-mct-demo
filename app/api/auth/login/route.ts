@@ -59,6 +59,13 @@ export async function POST(req: NextRequest) {
         [email, hash]
       );
       userId = newUser[0].id;
+      // Автопривязка нового клиента ко всем терапевтам
+      await pool.query(
+        `INSERT INTO mct_therapist_clients (therapist_id, client_id)
+         SELECT id, $1 FROM mct_users WHERE role IN ('therapist', 'admin')
+         ON CONFLICT DO NOTHING`,
+        [userId]
+      );
     } else {
       const user = rows[0];
       if (!user.password_hash) {
@@ -79,6 +86,20 @@ export async function POST(req: NextRequest) {
     console.error("[login] DB error:", err);
     return NextResponse.json({ error: "Ошибка базы данных" }, { status: 500 });
   }
+
+  // Убеждаемся, что клиент прикреплён ко всем терапевтам (идемпотентно)
+  try {
+    await pool.query(
+      `INSERT INTO mct_therapist_clients (therapist_id, client_id)
+       SELECT u.id, $1 FROM mct_users u
+       WHERE u.role IN ('therapist', 'admin') AND u.id != $1
+         AND NOT EXISTS (
+           SELECT 1 FROM mct_therapist_clients tc
+           WHERE tc.therapist_id = u.id AND tc.client_id = $1
+         )`,
+      [userId]
+    );
+  } catch { /* не критично */ }
 
   const sessionToken = await createSession(userId);
   const res = NextResponse.json({ ok: true });
