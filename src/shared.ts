@@ -1,4 +1,5 @@
 import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatOpenAI } from "@langchain/openai";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { AIMessage, ToolMessage } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
@@ -8,6 +9,37 @@ import { END } from "@langchain/langgraph";
 export const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 /** Лёгкая модель для классификации и роутинга (guard, coordinator) */
 const DEFAULT_FAST_MODEL = "claude-haiku-4-5-20251001";
+
+export const MODEL_CATALOG = [
+  { id: "claude-sonnet-4-20250514", label: "Claude Sonnet 4", provider: "anthropic" as const },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", provider: "anthropic" as const },
+  { id: "glm-4-plus", label: "GLM-4 Plus", provider: "glm" as const },
+  { id: "glm-4-flash", label: "GLM-4 Flash", provider: "glm" as const },
+] as const;
+
+export type ModelEntry = (typeof MODEL_CATALOG)[number];
+
+/** Список моделей, для которых задан API-ключ */
+export function availableModels(): ModelEntry[] {
+  return (MODEL_CATALOG as readonly ModelEntry[]).filter((m) => {
+    if (m.provider === "anthropic") return !!process.env.ANTHROPIC_API_KEY;
+    if (m.provider === "glm") return !!process.env.GLM_API_KEY;
+    return false;
+  });
+}
+
+/** Создаёт LangChain-модель по id — поддерживает Anthropic и GLM */
+export function createModelById(modelId: string): ChatAnthropic | ChatOpenAI {
+  if (modelId.startsWith("glm-")) {
+    return new ChatOpenAI({
+      model: modelId,
+      apiKey: process.env.GLM_API_KEY ?? "",
+      configuration: { baseURL: "https://open.bigmodel.cn/api/paas/v4" },
+      temperature: 0,
+    });
+  }
+  return new ChatAnthropic({ model: modelId, temperature: 0 });
+}
 
 export function createChatModel(): ChatAnthropic {
   const modelName = process.env.ANTHROPIC_MODEL ?? DEFAULT_MODEL;

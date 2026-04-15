@@ -635,6 +635,43 @@ a {
   cursor: not-allowed;
 }
 
+/* ── Model selector ── */
+.chat-model-selector {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.4rem 0;
+  flex-wrap: wrap;
+}
+
+.chat-model-btn {
+  padding: 0.18rem 0.65rem;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.chat-model-btn:hover:not(:disabled) {
+  border-color: var(--current-accent);
+  color: var(--current-accent);
+}
+
+.chat-model-btn--active {
+  background: color-mix(in srgb, var(--current-accent) 12%, transparent);
+  border-color: var(--current-accent);
+  color: var(--current-accent);
+  font-weight: 500;
+}
+
+.chat-model-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── Composer ── */
 .chat-composer {
   display: flex;

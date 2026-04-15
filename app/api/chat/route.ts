@@ -15,9 +15,9 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.GLM_API_KEY) {
     return NextResponse.json(
-      { error: "Задайте ANTHROPIC_API_KEY в .env" },
+      { error: "Задайте ANTHROPIC_API_KEY или GLM_API_KEY в .env" },
       { status: 500 }
     );
   }
@@ -29,14 +29,14 @@ export async function POST(req: NextRequest) {
 
   const user = await getUser(req);
 
-  let body: { threadId: string; message: string; moodBefore?: number; modality?: "mct" | "act" };
+  let body: { threadId: string; message: string; moodBefore?: number; modality?: "mct" | "act"; model?: string };
   try {
-    body = (await req.json()) as { threadId: string; message: string; moodBefore?: number; modality?: "mct" | "act" };
+    body = (await req.json()) as { threadId: string; message: string; moodBefore?: number; modality?: "mct" | "act"; model?: string };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { threadId, message, moodBefore, modality } = body;
+  const { threadId, message, moodBefore, modality, model } = body;
   if (!threadId || typeof message !== "string") {
     return NextResponse.json(
       { error: "Нужны threadId и message" },
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   let graph;
   try {
-    graph = await getFullGraph();
+    graph = await getFullGraph(model);
   } catch (e) {
     console.error("[api/chat] getFullGraph", e);
     return NextResponse.json(

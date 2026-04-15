@@ -9,6 +9,8 @@ type UserInfo = { id: string; email: string; role: string };
 
 type Msg = { role: "user" | "assistant"; text: string };
 
+type ModelEntry = { id: string; label: string; provider: string };
+
 const MCT_CHIPS = [
   "Что такое CAS?",
   "Упражнение при тревоге",
@@ -49,6 +51,8 @@ export default function ChatPage() {
   const [interruptPayload, setInterruptPayload] = useState<unknown>(null);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [modality, setModality] = useState<"mct" | "act">("mct");
+  const [availableModels, setAvailableModels] = useState<ModelEntry[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const [historyLoading, setHistoryLoading] = useState(true); // #11
   const { notify } = useNotify();
   const endRef = useRef<HTMLDivElement>(null);
@@ -102,7 +106,21 @@ export default function ChatPage() {
         }
       } catch { /* ignore */ }
 
-      // 2. Восстанавливаем модальность
+      // 2. Загружаем доступные модели
+      try {
+        const mr = await fetch("/api/models");
+        if (mr.ok) {
+          const md = (await mr.json()) as { models: ModelEntry[] };
+          if (md.models.length) {
+            setAvailableModels(md.models);
+            const saved = localStorage.getItem("mct_model") ?? "";
+            const found = md.models.find((m) => m.id === saved);
+            setSelectedModel(found ? found.id : md.models[0].id);
+          }
+        }
+      } catch { /* ignore */ }
+
+      // 3. Восстанавливаем модальность
       const savedModality =
         (localStorage.getItem("mct_modality") as "mct" | "act") ?? "mct";
       setModality(savedModality);
@@ -172,7 +190,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: tid, message: text, modality }),
+        body: JSON.stringify({ threadId: tid, message: text, modality, model: selectedModel || undefined }),
       });
       const data = await parseApiJson<{
         reply?: string;
@@ -215,7 +233,7 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
-  }, [input, loading, tid, modality]);
+  }, [input, loading, tid, modality, selectedModel]);
 
   const resume = useCallback(
     async (value: string) => {
@@ -492,6 +510,26 @@ export default function ChatPage() {
               Новый чат
             </button>
           </div>
+
+          {availableModels.length > 1 && (
+            <div className="chat-model-selector" role="group" aria-label="Выбор модели">
+              {availableModels.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`chat-model-btn${selectedModel === m.id ? " chat-model-btn--active" : ""}`}
+                  onClick={() => {
+                    setSelectedModel(m.id);
+                    localStorage.setItem("mct_model", m.id);
+                  }}
+                  disabled={loading}
+                  title={m.id}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="chat-composer">
             <textarea

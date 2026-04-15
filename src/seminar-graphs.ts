@@ -48,6 +48,7 @@ import {
 import {
   buildToolsByName,
   createChatModel,
+  createModelById,
   createGuardModel,
   createCoordinatorModel,
   createCriticModel,
@@ -55,6 +56,10 @@ import {
   lastAiTextFinal,
   threadConfig,
 } from "./shared";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+
+type AnyModel = ChatAnthropic | ChatOpenAI;
 
 const AgentState = new StateSchema({
   messages: MessagesValue,
@@ -106,7 +111,7 @@ type SystemFn = () => Promise<string>;
 function buildReactLoop(
   getSystem: SystemFn,
   tools: StructuredToolInterface[],
-  model: ReturnType<typeof createChatModel>
+  model: AnyModel
 ) {
   const map = buildToolsByName(tools);
   const modelWithTools = model.bindTools(tools);
@@ -240,7 +245,7 @@ function getFullGraphBasePrompt(): string {
   return modality === "act" ? SYSTEM_PROMPT_ACT_V4 : SYSTEM_PROMPT_V4;
 }
 
-function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
+function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver, mainModel?: AnyModel) {
   const cp = checkpointer ?? new MemorySaver();
   const tools = [
     searchExercisesOrResources,
@@ -248,7 +253,7 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
     updateClientProfile,
     proposeHomeworkPlan,
   ];
-  const model = createChatModel();
+  const model = mainModel ?? createChatModel();
   const classifier = createGuardModel();
   const { llmCall, toolNode, shouldContinue } = buildReactLoop(
     async () => buildSystemPrompt(getFullGraphBasePrompt()),
@@ -276,9 +281,9 @@ function buildFullGraphClassic(checkpointer?: BaseCheckpointSaver) {
     .compile({ checkpointer: cp });
 }
 
-function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
+function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver, mainModel?: AnyModel) {
   const cp = checkpointer ?? new MemorySaver();
-  const model = createChatModel();
+  const model = mainModel ?? createChatModel();
   const classifier = createGuardModel();
   const coordinatorModel = createCoordinatorModel().withStructuredOutput(
     coordinatorRoutingSchema
@@ -451,12 +456,13 @@ function buildFullGraphExtended(checkpointer?: BaseCheckpointSaver) {
     .compile({ checkpointer: cp });
 }
 
-export function buildFullGraph(checkpointer?: BaseCheckpointSaver) {
+export function buildFullGraph(checkpointer?: BaseCheckpointSaver, modelId?: string) {
+  const mainModel = modelId ? createModelById(modelId) : undefined;
   if (process.env.MCT_EXTENDED_GRAPH === "1") {
-    console.log("[graph] buildFullGraph: extended (coordinator + critic)");
-    return buildFullGraphExtended(checkpointer);
+    console.log("[graph] buildFullGraph: extended (coordinator + critic)", modelId ?? "default");
+    return buildFullGraphExtended(checkpointer, mainModel);
   }
-  return buildFullGraphClassic(checkpointer);
+  return buildFullGraphClassic(checkpointer, mainModel);
 }
 
 export { threadConfig as threadCfg, lastAiText, Command };

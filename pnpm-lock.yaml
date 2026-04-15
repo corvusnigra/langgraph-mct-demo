@@ -20,6 +20,9 @@ importers:
       '@langchain/langgraph-checkpoint-postgres':
         specifier: ^1.0.1
         version: 1.0.1(@langchain/core@1.1.39(openai@6.33.0(zod@3.25.76)))(@langchain/langgraph-checkpoint@1.0.1(@langchain/core@1.1.39(openai@6.33.0(zod@3.25.76))))
+      '@langchain/openai':
+        specifier: ^1.4.4
+        version: 1.4.4(@langchain/core@1.1.39(openai@6.33.0(zod@3.25.76)))
       '@upstash/ratelimit':
         specifier: ^2.0.8
         version: 2.0.8(@upstash/redis@1.37.0)
@@ -455,6 +458,12 @@ packages:
     peerDependenciesMeta:
       zod-to-json-schema:
         optional: true
+
+  '@langchain/openai@1.4.4':
+    resolution: {integrity: sha512-mRr/X5rvlwPj6cSXPxbL+CtOqYANO1/+CQ3Z+5t48kWnrlgPYOazmA+UAWvqQOuwJ6LaYn3SFrt43rR4lte/Ow==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@langchain/core': ^1.1.39
 
   '@napi-rs/canvas-android-arm64@0.1.80':
     resolution: {integrity: sha512-sk7xhN/MoXeuExlggf91pNziBxLPVUqF2CAVnB57KLG/pz7+U5TKG8eXdc3pm0d7Od0WreB6ZKLj37sX9muGOQ==}
@@ -1849,6 +1858,15 @@ snapshots:
       - svelte
       - vue
 
+  '@langchain/openai@1.4.4(@langchain/core@1.1.39(openai@6.33.0(zod@3.25.76)))':
+    dependencies:
+      '@langchain/core': 1.1.39(openai@6.33.0(zod@3.25.76))
+      js-tiktoken: 1.0.21
+      openai: 6.33.0(zod@3.25.76)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - ws
+
   '@napi-rs/canvas-android-arm64@0.1.80':
     optional: true
 
@@ -2591,7 +2609,6 @@ snapshots:
   openai@6.33.0(zod@3.25.76):
     optionalDependencies:
       zod: 3.25.76
-    optional: true
 
   p-finally@1.0.0: {}
 

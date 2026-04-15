@@ -2,21 +2,37 @@ import { buildFullGraph } from "../seminar-graphs";
 import { getCheckpointSaver } from "./checkpointer";
 import { initCorpusEmbeddings } from "../embeddings/vector-store";
 
-let graphPromise: Promise<ReturnType<typeof buildFullGraph>> | null = null;
+let checkpointerPromise: ReturnType<typeof getCheckpointSaver> | null = null;
+const graphCache = new Map<string, ReturnType<typeof buildFullGraph>>();
+
+async function resolveCheckpointer() {
+  if (!checkpointerPromise) {
+    checkpointerPromise = getCheckpointSaver();
+  }
+  return checkpointerPromise;
+}
 
 /**
- * Один compiled graph на процесс; checkpointer — Postgres при `DATABASE_URL`, иначе MemorySaver.
+ * Возвращает скомпилированный граф для указанной модели.
+ * Кэшируется per-modelId; дефолтный ключ — "default".
  */
-export async function getFullGraph() {
-  if (!graphPromise) {
-    graphPromise = (async () => {
-      const checkpointer = await getCheckpointSaver();
-      // Fire-and-forget инициализация эмбеддингов встроенного корпуса
-      initCorpusEmbeddings().catch((e) =>
-        console.warn("[embeddings] init failed:", e)
-      );
-      return buildFullGraph(checkpointer);
-    })();
+export async function getFullGraph(modelId?: string) {
+  const key = modelId ?? "default";
+  if (graphCache.has(key)) return graphCache.get(key)!;
+
+  const checkpointer = await resolveCheckpointer();
+
+  // double-check после await (race condition)
+  if (graphCache.has(key)) return graphCache.get(key)!;
+
+  if (graphCache.size === 0) {
+    // Fire-and-forget: инициализируем эмбеддинги только один раз
+    initCorpusEmbeddings().catch((e) =>
+      console.warn("[embeddings] init failed:", e)
+    );
   }
-  return graphPromise;
+
+  const graph = buildFullGraph(checkpointer, modelId);
+  graphCache.set(key, graph);
+  return graph;
 }
