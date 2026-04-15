@@ -58,6 +58,7 @@ async function doSetup(): Promise<void> {
       started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
       ended_at    TIMESTAMPTZ
     );
+    ALTER TABLE mct_chat_sessions ADD COLUMN IF NOT EXISTS modality TEXT NOT NULL DEFAULT 'mct';
 
     CREATE TABLE IF NOT EXISTS mct_exercise_logs (
       id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

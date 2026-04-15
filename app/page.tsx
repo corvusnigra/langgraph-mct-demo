@@ -58,35 +58,36 @@ export default function ChatPage() {
   // userId ref для использования внутри callbacks без пересоздания
   const userIdRef = useRef<string>("");
 
-  // threadKey — ключ localStorage с namespace по userId
-  const threadKey = (mod: "mct" | "act") =>
-    userIdRef.current
-      ? `mct_thread_${userIdRef.current}_${mod}`
-      : `mct_thread_id_${mod}`;
+  /** Загружает threadId из БД (API-first). При отсутствии БД — fallback на UUID. */
+  const fetchThread = useCallback(async (mod: "mct" | "act"): Promise<string> => {
+    try {
+      const r = await fetch(`/api/chat/thread?modality=${mod}`);
+      if (r.ok) {
+        const data = (await r.json()) as { threadId?: string };
+        if (data.threadId) return data.threadId;
+      }
+    } catch { /* ignore */ }
+    return crypto.randomUUID();
+  }, []);
 
-  const loadHistory = useCallback(async (tid: string, mod: "mct" | "act") => {
+  const loadHistory = useCallback(async (tid: string) => {
     setHistoryLoading(true);
     try {
       const r = await fetch(`/api/history?threadId=${tid}`);
       const data = r.ok ? (await r.json()) as { messages?: Msg[]; foreign?: boolean } : null;
-      if (data?.foreign) {
-        // Тред принадлежит другому пользователю — сбрасываем
-        const newTid = crypto.randomUUID();
-        localStorage.setItem(threadKey(mod), newTid);
-        setTid(newTid);
-        setMessages([]);
-      } else if (data?.messages?.length) {
+      if (data?.messages?.length) {
         setMessages(data.messages);
+      } else {
+        setMessages([]);
       }
     } catch {
       // ignore
     } finally {
       setHistoryLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Инициализация: сначала грузим юзера, потом threadId с namespace по userId
+  // Инициализация: сначала грузим юзера, потом threadId из БД
   useEffect(() => {
     const init = async () => {
       // 1. Загружаем текущего пользователя
@@ -104,35 +105,41 @@ export default function ChatPage() {
         (localStorage.getItem("mct_modality") as "mct" | "act") ?? "mct";
       setModality(savedModality);
 
-      // 3. threadId с namespace по userId
-      const key = threadKey(savedModality);
-      const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
-      localStorage.setItem(key, savedTid);
-      setTid(savedTid);
+      // 3. threadId из БД (источник истины)
+      const tid = await fetchThread(savedModality);
+      setTid(tid);
 
-      // 4. Загружаем историю с проверкой владельца
-      await loadHistory(savedTid, savedModality);
+      // 4. Загружаем историю
+      await loadHistory(tid);
     };
     void init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startNewChat = useCallback(
-    (mod: "mct" | "act" = modality) => {
-      const newTid = crypto.randomUUID();
-      localStorage.setItem(threadKey(mod), newTid);
-      setTid(newTid);
+    async (mod: "mct" | "act" = modality) => {
       setMessages([]);
       setError(null);
       setInterruptOpen(false);
       setInterruptPayload(null);
+      try {
+        const r = await fetch("/api/chat/thread", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ modality: mod }),
+        });
+        if (r.ok) {
+          const data = (await r.json()) as { threadId?: string };
+          if (data.threadId) { setTid(data.threadId); return; }
+        }
+      } catch { /* ignore */ }
+      setTid(crypto.randomUUID());
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [modality]
   );
 
   const switchModality = useCallback(
-    (mod: "mct" | "act") => {
+    async (mod: "mct" | "act") => {
       if (mod === modality) return;
       localStorage.setItem("mct_modality", mod);
       setModality(mod);
@@ -141,15 +148,11 @@ export default function ChatPage() {
       setInterruptOpen(false);
       setInterruptPayload(null);
 
-      const key = threadKey(mod);
-      const savedTid = localStorage.getItem(key) ?? crypto.randomUUID();
-      localStorage.setItem(key, savedTid);
-      setTid(savedTid);
-
-      void loadHistory(savedTid, mod);
+      const tid = await fetchThread(mod);
+      setTid(tid);
+      void loadHistory(tid);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [modality, loadHistory]
+    [modality, fetchThread, loadHistory]
   );
 
   useEffect(() => {

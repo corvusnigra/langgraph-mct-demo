@@ -5,18 +5,58 @@ import { getPgPool } from "./pg-pool";
 export async function createChatSession(
   userId: string,
   threadId: string,
-  moodBefore?: number
+  moodBefore?: number,
+  modality: "mct" | "act" = "mct"
 ): Promise<string> {
   const pool = getPgPool();
   if (!pool) return "";
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO mct_chat_sessions (user_id, thread_id, mood_before)
-     VALUES ($1, $2, $3)
+    `INSERT INTO mct_chat_sessions (user_id, thread_id, mood_before, modality)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (thread_id) DO UPDATE SET user_id = $1
      RETURNING id`,
-    [userId, threadId, moodBefore ?? null]
+    [userId, threadId, moodBefore ?? null, modality]
   );
   return rows[0]?.id ?? "";
+}
+
+/** Возвращает последний thread_id пользователя для заданной модальности.
+ *  Если записей нет — создаёт новую и возвращает её thread_id. */
+export async function getOrCreateThread(
+  userId: string,
+  modality: "mct" | "act"
+): Promise<string> {
+  const pool = getPgPool();
+  if (!pool) return crypto.randomUUID();
+  const { rows } = await pool.query<{ thread_id: string }>(
+    `SELECT thread_id FROM mct_chat_sessions
+     WHERE user_id = $1 AND modality = $2
+     ORDER BY started_at DESC LIMIT 1`,
+    [userId, modality]
+  );
+  if (rows.length > 0) return rows[0].thread_id;
+  // Создаём первую сессию
+  const threadId = crypto.randomUUID();
+  await pool.query(
+    `INSERT INTO mct_chat_sessions (user_id, thread_id, modality) VALUES ($1, $2, $3)`,
+    [userId, threadId, modality]
+  );
+  return threadId;
+}
+
+/** Создаёт новый thread и возвращает его id. */
+export async function createNewThread(
+  userId: string,
+  modality: "mct" | "act"
+): Promise<string> {
+  const pool = getPgPool();
+  const threadId = crypto.randomUUID();
+  if (!pool) return threadId;
+  await pool.query(
+    `INSERT INTO mct_chat_sessions (user_id, thread_id, modality) VALUES ($1, $2, $3)`,
+    [userId, threadId, modality]
+  );
+  return threadId;
 }
 
 export async function closeChatSession(threadId: string): Promise<void> {
