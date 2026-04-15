@@ -178,6 +178,13 @@ a {
   white-space: nowrap;
 }
 
+/* ── Credit error banner ── */
+.chat-error-banner--credit {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+}
+
 /* ── Error banner ── */
 .chat-error-banner {
   flex-shrink: 0;

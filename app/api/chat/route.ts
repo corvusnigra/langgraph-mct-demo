@@ -76,13 +76,12 @@ export async function POST(req: NextRequest) {
     );
   } catch (e) {
     console.error("[api/chat] invoke", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("credit balance is too low") || msg.includes("Your credit balance")) {
+      return NextResponse.json({ error: msg, code: "insufficient_credits" }, { status: 402 });
+    }
     return NextResponse.json(
-      {
-        error:
-          e instanceof Error
-            ? e.message
-            : "Ошибка выполнения графа (таймаут, LLM, сеть).",
-      },
+      { error: msg || "Ошибка выполнения графа (таймаут, LLM, сеть)." },
       { status: 500 }
     );
   }

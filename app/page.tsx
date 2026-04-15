@@ -49,6 +49,7 @@ export default function ChatPage() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [modality, setModality] = useState<"mct" | "act">("mct");
   const [historyLoading, setHistoryLoading] = useState(true); // #11
+  const [creditError, setCreditError] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -177,8 +178,13 @@ export default function ChatPage() {
         interrupted?: boolean;
         interruptPayload?: unknown;
         error?: string;
+        code?: string;
       }>(res);
       if (!res.ok) {
+        if (data.code === "insufficient_credits" || res.status === 402) {
+          setCreditError(true);
+          return;
+        }
         setError(data.error ?? res.statusText);
         return;
       }
@@ -306,6 +312,30 @@ export default function ChatPage() {
           )}
         </div>
       </nav>
+
+      {/* ── Credit error banner ── */}
+      {creditError && (
+        <div className="chat-error-banner chat-error-banner--credit" role="alert">
+          <span className="chat-error-banner__icon" aria-hidden="true">⚠</span>
+          <span>
+            Недостаточно кредитов Anthropic API.{" "}
+            <a
+              href="https://console.anthropic.com/billing"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "inherit", textDecoration: "underline" }}
+            >
+              Пополнить баланс →
+            </a>
+          </span>
+          <button
+            type="button"
+            onClick={() => setCreditError(false)}
+            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: "1rem" }}
+            aria-label="Закрыть"
+          >✕</button>
+        </div>
+      )}
 
       {/* ── Error banner ── */}
       {error && (
