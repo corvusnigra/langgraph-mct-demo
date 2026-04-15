@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { parseApiJson } from "@/src/lib/parse-api-response";
+import { useNotify } from "@/app/components/notifications";
 
 type UserInfo = { id: string; email: string; role: string };
 
@@ -49,7 +50,7 @@ export default function ChatPage() {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [modality, setModality] = useState<"mct" | "act">("mct");
   const [historyLoading, setHistoryLoading] = useState(true); // #11
-  const [creditError, setCreditError] = useState(false);
+  const { notify } = useNotify();
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -182,7 +183,12 @@ export default function ChatPage() {
       }>(res);
       if (!res.ok) {
         if (data.code === "insufficient_credits" || res.status === 402) {
-          setCreditError(true);
+          notify({
+            type: "warning",
+            message: "Недостаточно кредитов Anthropic API.",
+            action: { label: "Пополнить баланс", href: "https://console.anthropic.com/billing" },
+            duration: 0,
+          });
           return;
         }
         setError(data.error ?? res.statusText);
@@ -312,30 +318,6 @@ export default function ChatPage() {
           )}
         </div>
       </nav>
-
-      {/* ── Credit error banner ── */}
-      {creditError && (
-        <div className="chat-error-banner chat-error-banner--credit" role="alert">
-          <span className="chat-error-banner__icon" aria-hidden="true">⚠</span>
-          <span>
-            Недостаточно кредитов Anthropic API.{" "}
-            <a
-              href="https://console.anthropic.com/billing"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "inherit", textDecoration: "underline" }}
-            >
-              Пополнить баланс →
-            </a>
-          </span>
-          <button
-            type="button"
-            onClick={() => setCreditError(false)}
-            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: "1rem" }}
-            aria-label="Закрыть"
-          >✕</button>
-        </div>
-      )}
 
       {/* ── Error banner ── */}
       {error && (

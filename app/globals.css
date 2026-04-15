@@ -787,6 +787,70 @@ a {
 }
 
 /* ═══════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════════════ */
+
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 380px;
+  width: calc(100vw - 2rem);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: all;
+  animation: toast-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.toast__msg {
+  flex: 1;
+  word-break: break-word;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.5;
+  font-size: 0.8rem;
+  padding: 0;
+  line-height: 1.4;
+  transition: opacity 0.15s;
+}
+
+.toast__close:hover { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════
    LOGIN PAGE
 ═══════════════════════════════════════════════════ */
 
